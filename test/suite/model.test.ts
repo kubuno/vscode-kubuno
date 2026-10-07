@@ -61,3 +61,12 @@ suite('kbview model (fallback without the language server)', () => {
     assert.match(out, /  }\n\n  label_click\(_sender: Label, _e: MouseEventArgs\): void \{\n    \/\/ TODO: implement label_click\n  \}\n\}\n$/)
   })
 })
+
+suite('language server URIs', () => {
+  test('a Windows drive keeps its colon (the server reads file:///c:/…, not c%3A)', async () => {
+    const vscode = await import('vscode')
+    const { lsUri } = await import('../../src/lsp/client')
+    assert.strictEqual(lsUri(vscode.Uri.parse('file:///c%3A/My%20Views/A.kbview')), 'file:///c:/My%20Views/A.kbview')
+    assert.strictEqual(lsUri(vscode.Uri.parse('file:///home/me/a%3Ab.kbview')), 'file:///home/me/a%3Ab.kbview')
+  })
+})

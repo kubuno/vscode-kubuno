@@ -20,3 +20,16 @@ All notable changes to this extension are documented here (format: Keep a Change
 - Restricted Mode support: the designer works in an untrusted workspace, the language server starts once it is
   trusted.
 - Integration tests on a real VS Code (`@vscode/test-electron`), screenshot scripts for Linux (Xvfb) and Windows.
+- A Linux / Windows test matrix (`docs/VSCODE-TEST-MATRIX.md`).
+
+### Fixed
+
+- Ctrl+Z, Ctrl+Y, Ctrl+S and F7 pressed on the design surface ran twice (one Ctrl+Z undid two edits, F7 opened
+  the code-behind and then a second designer): VS Code already forwards these keys to its keybindings.
+- A Properties value confirmed with Enter was written a second time when the field lost focus.
+- With the language server, an element inserted from the Toolbox was glued to the closing tag of its parent; it
+  now gets its own indented line.
+- With the language server, a double-click that the server could not resolve created no handler; the built-in
+  writer now creates it.
+- On Windows the language server received `file:///c%3A/…` URIs it cannot turn into paths, so web views were
+  served with the desktop profile; the drive colon is now sent as is.

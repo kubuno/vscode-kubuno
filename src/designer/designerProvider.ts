@@ -271,16 +271,15 @@ export class DesignerSession implements vscode.Disposable {
     }
   }
 
+  /**
+   * A key the page does not use. VS Code's webview host already forwards every keydown of the page to the
+   * workbench, which runs its keybindings (undo, redo, save, F7 of this extension…) — running them here as well
+   * ran them twice (one Ctrl+Z undid two edits, F7 opened the code-behind then a second designer). Only keys
+   * no keybinding covers are handled here.
+   */
   private async unhandledKey(m: PageMessage): Promise<void> {
     const key = String(m.key)
-    const ctrl = m.ctrl === true
-    const shift = m.shift === true
-    const k = key.toLowerCase()
-    if (ctrl && k === 'z' && !shift) await vscode.commands.executeCommand('undo')
-    else if (ctrl && (k === 'y' || (k === 'z' && shift))) await vscode.commands.executeCommand('redo')
-    else if (ctrl && k === 's') await this.document.save()
-    else if (key === 'F7') await vscode.commands.executeCommand('kubuno.toggleCodeBehind')
-    else if (key === 'F4') await vscode.commands.executeCommand('kubuno.properties.focus')
+    if (key === 'F4' && m.ctrl !== true && m.alt !== true && m.shift !== true) await vscode.commands.executeCommand('kubuno.properties.focus')
   }
 
   dispose(): void {

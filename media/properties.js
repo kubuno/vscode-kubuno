@@ -103,13 +103,19 @@
     i.value = p.value === null ? '' : p.value
     i.placeholder = p.defaultValue
     i.spellcheck = false
+    // Enter commits, and so does the blur that follows (focus moving to the surface): commit a value once, not
+    // twice — the second identical edit was an extra undo step.
+    let committed = p.value === null ? '' : p.value
     const done = () => {
       const v = i.value
-      if ((p.value === null ? '' : p.value) !== v) commit(p, v)
+      if (committed !== v) {
+        committed = v
+        commit(p, v)
+      }
     }
     i.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') done()
-      if (e.key === 'Escape') i.value = p.value === null ? '' : p.value
+      if (e.key === 'Escape') i.value = committed
     })
     i.addEventListener('blur', done)
     return i

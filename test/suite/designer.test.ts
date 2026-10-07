@@ -13,6 +13,7 @@ const ws = process.env.KUBUNO_TEST_WS ?? vscode.workspace.workspaceFolders![0].u
 const MENUS = path.join(ws, 'core', 'web', 'src', 'core', 'shell', 'menus')
 const WAFFLE = path.join(MENUS, 'WaffleMenu.kbcontrol')
 const DUPLICATES = path.join(ws, 'drive', 'web', 'src', 'dialogs', 'DuplicatesDialog.kbview')
+const SETTINGS = path.join(ws, 'drive', 'web', 'src', 'views', 'DriveSettingsPage.kbview')
 
 async function until<T>(what: string, f: () => T | undefined | null | false | Promise<T | undefined | null | false>, timeout = 30_000): Promise<T> {
   const end = Date.now() + timeout
@@ -144,6 +145,36 @@ suite('Kubuno designer (VS Code)', () => {
     await until(`a render (${statusOf(s)})`, () => s.lastStatus && s.lastStatus.state !== 'empty')
     console.log(`DuplicatesDialog: ${statusOf(s)}`)
     assert.ok(s.lastStatus?.state === 'clean' || s.lastStatus?.state === 'stale')
+  })
+
+  test('a key the page forwards (Ctrl+Z, F7) is not run a second time by the extension', async () => {
+    const s = api.designers.sessionFor(vscode.Uri.file(WAFFLE))!
+    const ok = await api.service.applyOps(s.document, [{ kind: 'setAttribute', elementId: '0.0.0.0.0.0', name: 'Gap', value: '12' }])
+    assert.ok(ok)
+    const after = s.document.getText()
+    const editors = vscode.window.tabGroups.all.flatMap((g) => g.tabs).length
+    // VS Code's webview host already hands these keys to the workbench keybindings; the page's `unhandledKey`
+    // must not undo, save or toggle the code-behind again.
+    await s.onMessage({ type: 'unhandledKey', key: 'z', ctrl: true, shift: false, alt: false })
+    await s.onMessage({ type: 'unhandledKey', key: 'F7', ctrl: false, shift: false, alt: false })
+    await sleep(500)
+    assert.strictEqual(s.document.getText(), after)
+    assert.strictEqual(vscode.window.tabGroups.all.flatMap((g) => g.tabs).length, editors)
+    await vscode.commands.executeCommand('undo')
+  })
+
+  test('drive DriveSettingsPage: an inserted Button gets its own line and a handler', async () => {
+    const s = await openDesigner(api, SETTINGS)
+    const before = s.document.getText()
+    await api.service.applyOps(s.document, [{ kind: 'insertChild', parentId: '0', index: 1, xml: '<Button />' }])
+    const text = s.document.getText()
+    assert.notStrictEqual(text, before)
+    assert.match(text, /\n[ \t]*<Button ?\/>[ \t]*\r?\n[ \t]*<\/Panel>/, 'the new element on its own line')
+    await s.onMessage({ type: 'doubleClick', elementId: '0.1' })
+    await until('OnClick on the new Button', () => /<Button OnClick="button_click" ?\/>/.test(s.document.getText()))
+    const ts = vscode.workspace.textDocuments.find((d) => same(d.uri.fsPath, path.join(path.dirname(SETTINGS), 'DriveSettingsPage.ts')))
+    assert.ok(ts, 'the code-behind is open')
+    assert.match(ts.getText(), /button_click\(_?sender: Button, _?e: MouseEventArgs\): void \{/)
   })
 
   test('demo layout (screenshots)', async function () {
