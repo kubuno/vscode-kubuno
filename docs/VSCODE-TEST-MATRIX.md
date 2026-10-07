@@ -120,10 +120,11 @@ the dev core folder. Every task and launch was triggered with real keys (Ctrl+Sh
 | F5: prepare + dev core + drive on 18680, page opened | OK (PostgreSQL) | **fixed**, then OK (SQLite) | Windows/SQLite: `sqlite://<folder>` names one file, the core needs a folder (engine + path now); then sign-in failed on SQLite — core bug, fixed (below) |
 | Sign in and browse drive in the browser | OK | OK (after the core fix) | |
 | Rust breakpoint hit (`handlers/health.rs:18`, GET /health) under CodeLLDB | OK | OK | Linux: **fixed** — unresolved through the symbolic link; `breakpointMode: file` |
-| TS breakpoint in drive's `DriveApp.ts` (browser session) | **KO** | **KO** | the breakpoint stays unbound on both; see below |
+| TS breakpoint in drive's `DriveApp.ts` (browser session) | **fixed**, then OK | **fixed**, then OK | see « TypeScript breakpoints » below |
+| TS breakpoint in the core web host (`core/web/src/views/render.tsx`) | OK | OK | same fix |
 | Stop debugging leaves no process behind | **fixed** | **fixed** | the core does not stop its modules when killed: `kubuno-drive` kept port 3101 and (Windows) its binary locked; the extension stops them on session end and before a launch |
 
-**Summary, part 2:** 12 OK on both OSes (6 after a fix), 1 KO on both (TS breakpoints).
+**Summary, part 2:** 14 OK on both OSes (7 after a fix), 0 KO left.
 
 ### Fixes made during part 2
 
@@ -135,14 +136,29 @@ the dev core folder. Every task and launch was triggered with real keys (Ctrl+Sh
   (`NOT NULL constraint failed: refresh_tokens.id`). The id is now generated as in the three other inserts.
   Found on Windows because the dev core used SQLite there; not OS-specific.
 
-### Open: TypeScript breakpoints in a module
+### TypeScript breakpoints (module and core web host)
 
-The browser session attaches and the module's source maps (`--sourcemap`) are served
-(`/modules/drive/chunks/*.js.map`), but js-debug resolves their sources (`../../src/views/DriveApp.ts` from
-`/modules/drive/chunks/`, i.e. `/modules/src/…`) to the wrong folder (`drive/src/…` instead of `drive/web/src/…`):
-the `sourceMapPathOverrides` / `pathMapping` given by the extension do not reach that resolution. Same on both OSes.
-Next step: run the session with `trace: true` and fix the mapping, or have the module builds write source paths
-relative to the module (`build.sourcemapPathTransform`), which also helps any other debugger.
+Root cause, from a js-debug trace (`"trace": true` in the launch configuration, now passed through):
+
+1. A breakpoint is set on the path **the editor** shows; when the checkout is reached through a symbolic link or
+   a Windows junction (`~/kubuno/devws/drive` → `~/kubuno/drive`, `C:kubuno-build` → `E:kubuno-build`), the
+   launch configuration gave js-debug the **real** path as `webRoot`, so the module's sources were resolved to
+   another path than the breakpoint's and it stayed unbound.
+2. js-debug maps a compiled URL to a local file through `sourceMapPathOverrides` only when that file exists and
+   matches what is served. The core serves a module's entry renamed (`entry.js` → `entry-<hash>.js`) and its
+   own shared chunks (`/shared/…`) did not pass the check either; js-debug then resolves the map's relative
+   sources from « webRoot + URL path » — `drive/web` + `/shared/` + `../../src` → `drive/src/…`, the wrong
+   folder seen in the first pass.
+
+The source maps themselves are right (sources relative to the compiled file, `../../src/views/X.ts` from
+`chunks/`), so nothing changes in the module builds or in a shared Vite preset. The fix is in the launch
+configuration: editor-side paths for `webRoot` and the mappings, `/modules/<id>/` → the module's `web/dist` and
+`/` → the core's `web/dist` both as `sourceMapPathOverrides` and as `pathMapping` (used by the fallback). It
+works for any module id and for the core web host.
+
+Verified with real input on both OSes (Linux on its own Xvfb display `:77`, because another agent was driving
+the live `:1` session): `DriveApp.ts:182` (drive) and `render.tsx:918` (core web host) paused, the host frames
+open `core/web/src` files (`matrixcompare13-ts-breakpoint.png`, `b15-host-breakpoint.png`).
 
 ### Incident: disk full on .100
 

@@ -41,3 +41,6 @@ All notable changes to this extension are documented here (format: Keep a Change
 - With the language server, a double-click that the server could not resolve created no handler; the built-in
   writer now creates it.
 - Select Parent now moves the XML caret to the parent too.
+- TypeScript breakpoints in a module's web code and in the core web host now bind in the « web (browser) »
+  launch configuration, also when the checkout is opened through a symbolic link or a Windows junction; the
+  configuration accepts `"trace": true`.

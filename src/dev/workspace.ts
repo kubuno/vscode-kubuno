@@ -18,6 +18,11 @@ export interface Checkout {
   web: string | null
   /** Module only: the `[process].entrypoint` of `module.toml`. */
   entrypoint: string | null
+  /**
+   * `web/` as the editor sees it (through the workspace's links, when the checkout is reached through a symbolic
+   * link or a junction); `web` is the real path. Debuggers match breakpoints against the editor's path.
+   */
+  editorWeb: string | null
 }
 
 function read(file: string): string | null {
@@ -62,11 +67,12 @@ function checkoutAt(linked: string, folder: vscode.WorkspaceFolder): Checkout | 
   const cargo = read(path.join(dir, 'server', 'Cargo.toml'))
   const server = cargo !== null ? path.join(dir, 'server') : null
   const web = fs.existsSync(path.join(dir, 'web', 'package.json')) ? path.join(dir, 'web') : null
-  if (cargo !== null && /^\s*name\s*=\s*"kubuno-core"/m.test(cargo)) return { id: 'core', dir, folder, server, web, entrypoint: null }
+  const editorWeb = web ? path.join(linked, 'web') : null
+  if (cargo !== null && /^\s*name\s*=\s*"kubuno-core"/m.test(cargo)) return { id: 'core', dir, folder, server, web, entrypoint: null, editorWeb }
   const manifest = read(path.join(dir, 'module.toml'))
   if (manifest === null || (server === null && web === null)) return null
   const id = tomlValue(manifest, 'module', 'id') ?? path.basename(dir)
-  return { id, dir, folder, server, web, entrypoint: tomlValue(manifest, 'process', 'entrypoint') }
+  return { id, dir, folder, server, web, entrypoint: tomlValue(manifest, 'process', 'entrypoint'), editorWeb }
 }
 
 /** Every checkout of the workspace (a folder itself, then its direct children). */

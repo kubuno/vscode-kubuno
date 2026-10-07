@@ -410,6 +410,14 @@
                 "type": "boolean",
                 "default": true,
                 "description": "Open the module's page once the core answers."
+              },
+              "trace": {
+                "type": [
+                  "boolean",
+                  "object"
+                ],
+                "default": false,
+                "description": "Browser target: js-debug tracing (its log file is named in the debug console)."
               }
             }
           }

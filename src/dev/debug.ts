@@ -100,28 +100,35 @@ export class KubunoDebugProvider implements vscode.DebugConfigurationProvider {
     if (config.target === 'browser') {
       if (!m?.web) return void vscode.window.showErrorMessage(`Kubuno: no web/ for "${id}" in the workspace.`)
       const browser = vscode.workspace.getConfiguration('kubuno').get<string>('dev.browser', 'chrome')
+      // Paths as the editor sees them: a breakpoint is set on the editor's path, and a checkout reached through a
+      // symbolic link or a Windows junction (~/ws/drive → ~/src/drive, C:\build → E:\build) would otherwise be
+      // resolved to its real path by the source maps, and the breakpoint would stay unbound.
+      const web = m.editorWeb ?? m.web
+      const hostWeb = core?.editorWeb ?? core?.web ?? null
+      const origin = `http://127.0.0.1:${port}`
+      // The module's build (web/dist) is served at /modules/<id>/ (entry-<hash>.js, chunks/…), the core's web host
+      // build (core/web/dist) at the root (/assets, /shared…). Their source maps name the sources relative to the
+      // compiled file (../../src/views/X.ts from chunks/), so mapping each compiled URL to its dist folder is enough
+      // for every module and for the host. The most specific prefix comes first.
+      const overrides: Record<string, string> = { [`${origin}/modules/${id}/*`]: `${path.join(web, 'dist')}/*` }
+      if (hostWeb) overrides[`${origin}/*`] = `${path.join(hostWeb, 'dist')}/*`
+      // js-debug uses an override only when the local file exists and matches what is served. The core serves a
+      // module's entry renamed (entry.js → entry-<hash>.js) and its own shared chunks fail that check too; js-debug
+      // then resolves the map's relative sources from « webRoot + URL path » (drive/web + /shared/ → drive/src/…, a
+      // folder that does not exist). The same prefixes as URL paths make that fallback land in the right dist/.
+      const pathMapping: Record<string, string> = { [`/modules/${id}/`]: `${path.join(web, 'dist')}${path.sep}` }
+      if (hostWeb) pathMapping['/'] = `${path.join(hostWeb, 'dist')}${path.sep}`
       return {
         type: browser === 'edge' ? 'msedge' : 'chrome',
         request: 'launch',
         name: config.name,
         url,
-        webRoot: m.web,
+        webRoot: web,
         sourceMaps: true,
-        // The core serves the module's build (web/dist) at /modules/<id>/ (entry-<hash>.js, chunks/…); the source
-        // maps name the sources relative to dist (../src/… from entry.js, ../../src/… from chunks/), which the
-        // browser resolves to /modules/src/… → web/src.
-        sourceMapPathOverrides: {
-          [`http://127.0.0.1:${port}/modules/src/*`]: `${path.join(m.web, 'src')}/*`,
-          [`http://127.0.0.1:${port}/modules/node_modules/*`]: `${path.join(m.web, 'node_modules')}/*`,
-          [`http://127.0.0.1:${port}/modules/${id}/*`]: `${path.join(m.web, 'dist')}/*`,
-        },
-        // The same mapping by URL path: js-debug resolves sources fetched from the page's origin through `pathMapping`
-        // (then `webRoot`), and the overrides alone were not applied to them.
-        pathMapping: {
-          '/modules/src/': `${path.join(m.web, 'src')}${path.sep}`,
-          '/modules/node_modules/': `${path.join(m.web, 'node_modules')}${path.sep}`,
-          [`/modules/${id}/`]: `${path.join(m.web, 'dist')}${path.sep}`,
-        },
+        // `"trace": true` in the Kubuno configuration reaches js-debug (its log path is printed in the debug console).
+        ...(config.trace ? { trace: config.trace } : {}),
+        sourceMapPathOverrides: overrides,
+        pathMapping,
       }
     }
     if (!core?.server) return void vscode.window.showErrorMessage('Kubuno: the workspace has no core checkout (core/server/Cargo.toml).')
