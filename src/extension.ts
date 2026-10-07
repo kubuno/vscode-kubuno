@@ -13,7 +13,7 @@ import { KubunoExplorer } from './project/explorer'
 import { codeBehindOf, findProject } from './project/webProject'
 import { describeSelection, PropertiesView, ToolboxView } from './views/panels'
 import { ViewService } from './views/viewService'
-import { DEBUG_TYPE, KubunoDebugProvider, watchDevCoreSessions } from './dev/debug'
+import { DEBUG_TYPE, KubunoDebugProvider, KubunoDynamicConfigurations, watchDevCoreSessions } from './dev/debug'
 import { initDevCore } from './dev/devCore'
 import { KubunoTaskProvider, TASK_TYPE } from './dev/tasks'
 
@@ -142,7 +142,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<Kubuno
   initDevCore(context)
   context.subscriptions.push(vscode.tasks.registerTaskProvider(TASK_TYPE, new KubunoTaskProvider()))
   context.subscriptions.push(vscode.debug.registerDebugConfigurationProvider(DEBUG_TYPE, new KubunoDebugProvider()))
-  context.subscriptions.push(vscode.debug.registerDebugConfigurationProvider(DEBUG_TYPE, new KubunoDebugProvider(), vscode.DebugConfigurationProviderTriggerKind.Dynamic))
+  context.subscriptions.push(vscode.debug.registerDebugConfigurationProvider(DEBUG_TYPE, new KubunoDynamicConfigurations(), vscode.DebugConfigurationProviderTriggerKind.Dynamic))
   context.subscriptions.push(watchDevCoreSessions())
 
   log(`Kubuno extension ${String(context.extension.packageJSON.version)} on ${process.platform}-${process.arch}, VS Code ${vscode.version}`)

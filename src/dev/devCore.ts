@@ -56,15 +56,17 @@ export function devCoreEnv(core: Checkout): Record<string, string> {
   for (const d of SUBDIRS) fs.mkdirSync(path.join(dir, d), { recursive: true })
   const s = secrets(dir)
   const cfg = vscode.workspace.getConfiguration('kubuno')
-  const db = cfg.get<string>('dev.databaseUrl')?.trim() || `sqlite://${path.join(dir, 'db').replace(/\\/g, '/')}`
+  const url = cfg.get<string>('dev.databaseUrl')?.trim()
   const p = (sub: string): string => path.join(dir, sub)
+  // No URL: SQLite with one `<schema>.sqlite` file per schema in `db/` (engine + folder; a `sqlite://` URL names a
+  // single file, which the core and its modules cannot share).
+  const database: Record<string, string> = url ? { KV__DATABASE__URL: url } : { KV__DATABASE__ENGINE: 'sqlite', KV__DATABASE__PATH: p('db') }
   const env: Record<string, string> = {
     KV__SERVER__HOST: '127.0.0.1',
     KV__SERVER__PORT: String(devPort()),
     KV__SERVER__INTERNAL_SECRET: s.internal,
     KV__AUTH__JWT_SECRET: s.jwt,
-    KV__DATABASE__URL: db,
-    KV__DATABASE__PATH: p('db'),
+    ...database,
     KV__SERVER__FRONTEND_DIST: path.join(core.dir, 'web', 'dist'),
     KV__SERVER__MODULES_DIR: p('modules'),
     KV__SERVER__MODULES_INSTALL_DIR: p('modules-store'),
@@ -97,6 +99,42 @@ function copyDir(from: string, to: string): void {
   fs.rmSync(to, { recursive: true, force: true })
   fs.mkdirSync(path.dirname(to), { recursive: true })
   fs.cpSync(from, to, { recursive: true })
+}
+
+/**
+ * Stops the module processes left by a dev core: the core does not stop its modules when it is killed (a debugger
+ * stop is a kill), so `kubuno-drive` keeps port 3101 and the next run's module fails to bind it. Only executables
+ * of this dev core's `modules/` folder are touched.
+ */
+export async function stopDevModules(dir = devCoreDir()): Promise<number> {
+  const root = path.join(dir, 'modules') + path.sep
+  const pids: number[] = []
+  if (process.platform === 'win32') {
+    const { execFile } = await import('node:child_process')
+    const out = await new Promise<string>((resolve) =>
+      execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', 'Get-CimInstance Win32_Process | ForEach-Object { "$($_.ProcessId)|$($_.ExecutablePath)" }'], { windowsHide: true, maxBuffer: 8 << 20 }, (_e, stdout) => resolve(stdout ?? '')),
+    )
+    for (const line of out.split(/\r?\n/)) {
+      const [pid, exePath] = line.split('|')
+      if (exePath && exePath.toLowerCase().startsWith(root.toLowerCase())) pids.push(Number(pid))
+    }
+  } else {
+    for (const pid of fs.readdirSync('/proc').filter((p) => /^\d+$/.test(p))) {
+      try {
+        if (fs.readlinkSync(`/proc/${pid}/exe`).startsWith(root)) pids.push(Number(pid))
+      } catch {
+        /* another user's process, or gone */
+      }
+    }
+  }
+  for (const pid of pids) {
+    try {
+      process.kill(pid)
+    } catch {
+      /* already gone */
+    }
+  }
+  return pids.length
 }
 
 /** Deploys a module's build into the dev core (`module.toml`, its server binary, `web/dist` as `frontend/`). */

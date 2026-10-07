@@ -164,7 +164,7 @@ Effort: S ≤ 2 days, M ≤ 1 week, L ≤ 3 weeks, XL more.
 | Menus « Type here », ribbon editing, smart tags | ❌ | L | in-page adorners exist on desktop only; web side to write |
 | Desktop designer | ❌ | §5 | |
 | Dev assistant (AI in the IDE) | ❌ | M | VS Code's chat / language model API, or the MCP server already designed for VS |
-| Dev core F5, remote Linux build, debug | ❌ | M | tasks + CodeLLDB + SSH (Remote-SSH can even run the whole IDE on the Linux host) |
+| Dev core F5, build tasks, debug | ✅ local (task and debug providers, `src/dev/`); TS breakpoints in modules open | S | remote Linux build: Remote-SSH can run the whole IDE on the Linux host |
 | Publish (.kbpkg, release, Docker) | ❌ | S–M | commands wrapping `_tools/` scripts |
 | Rust (rust-analyzer, cargo) | free | — | official extensions |
 
@@ -194,6 +194,7 @@ desktop designer and the WinForms-grade Properties window for nothing in return 
   `src/project/` — web project detection (the server's rule), registries, the Projects view.
 - Tests: `npm test` (`@vscode/test-electron`, a throw-away workspace copied from `core/` and `drive/`;
   `KUBUNO_VIEWS_LS` to use a server, `KUBUNO_SRC` for the checkout). Linux: `xvfb-run -a npm test`.
+- Linux / Windows matrix (designer, language, build / run / debug): `docs/VSCODE-TEST-MATRIX.md`.
 - Screenshots: `scripts/demo-linux.sh` (Xvfb + ImageMagick), `scripts/place-linux.sh` (real mouse placement with
   `xdotool`), `scripts/demo-windows.ps1` (PrintWindow).
 

@@ -41,7 +41,24 @@ export function tomlValue(text: string, section: string, key: string): string | 
   return null
 }
 
-function checkoutAt(dir: string, folder: vscode.WorkspaceFolder): Checkout | null {
+function isDir(p: string): boolean {
+  try {
+    return fs.statSync(p).isDirectory()
+  } catch {
+    return false
+  }
+}
+
+function checkoutAt(linked: string, folder: vscode.WorkspaceFolder): Checkout | null {
+  // The real path: Vite (rolldown) resolves its root through links, and a checkout reached through a Windows
+  // junction or a symbolic link (C:\build → E:\build) then fails with "fileName … must be neither absolute nor
+  // relative" for index.html. Every task runs in the real folder.
+  let dir = linked
+  try {
+    dir = fs.realpathSync.native(linked)
+  } catch {
+    /* keep the path as given */
+  }
   const cargo = read(path.join(dir, 'server', 'Cargo.toml'))
   const server = cargo !== null ? path.join(dir, 'server') : null
   const web = fs.existsSync(path.join(dir, 'web', 'package.json')) ? path.join(dir, 'web') : null
@@ -60,7 +77,13 @@ export function findCheckouts(): Checkout[] {
     const root = folder.uri.fsPath
     const dirs = [root]
     try {
-      for (const e of fs.readdirSync(root, { withFileTypes: true })) if (e.isDirectory() && !e.name.startsWith('.') && e.name !== 'node_modules') dirs.push(path.join(root, e.name))
+      for (const e of fs.readdirSync(root, { withFileTypes: true })) {
+        if (e.name.startsWith('.') || e.name === 'node_modules') continue
+        const full = path.join(root, e.name)
+        // A symbolic link or a Windows junction to a checkout counts: `isDirectory()` of the entry does not
+        // follow links, `statSync` does.
+        if (e.isDirectory() || (e.isSymbolicLink() && isDir(full))) dirs.push(full)
+      }
     } catch {
       /* unreadable folder */
     }

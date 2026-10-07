@@ -21,6 +21,15 @@ All notable changes to this extension are documented here (format: Keep a Change
   trusted.
 - Integration tests on a real VS Code (`@vscode/test-electron`), screenshot scripts for Linux (Xvfb) and Windows.
 - A Linux / Windows test matrix (`docs/VSCODE-TEST-MATRIX.md`).
+- Build tasks for every Kubuno checkout of the workspace (`kubuno` task type, Ctrl+Shift+B): `cargo build` of the
+  core and of each module, `npm ci`, web build with source maps, `kbview-tsc -b` typecheck, with problem matchers
+  (`$kubuno-rustc`, `$kubuno-tsc`) that put cargo and TypeScript errors in the Problems panel. No `tasks.json`
+  needed; the same on Linux, Windows and macOS.
+- Launch configurations (`kubuno` debug type): « dev core + module » runs the workspace's core with a module on
+  its own port (18680) and data folder under CodeLLDB (or cppvsdbg / gdb), after building and deploying the
+  module, and opens the module's page; « module web (browser) » debugs the page in Chrome or Edge. Settings
+  `kubuno.dev.*` (port, throw-away database, folders, Cargo target folder and build environment, debugger,
+  browser, admin password).
 
 ### Fixed
 
@@ -31,3 +40,4 @@ All notable changes to this extension are documented here (format: Keep a Change
   now gets its own indented line.
 - With the language server, a double-click that the server could not resolve created no handler; the built-in
   writer now creates it.
+- Select Parent now moves the XML caret to the parent too.

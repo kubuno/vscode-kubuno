@@ -34,7 +34,8 @@
         "kubuno.languageServer.path",
         "kubuno.designer.hostRuntimePath",
         "kubuno.dev.cargoTargetDir",
-        "kubuno.dev.folder"
+        "kubuno.dev.folder",
+        "kubuno.dev.buildEnv"
       ]
     }
   },
@@ -247,7 +248,7 @@
         "kubuno.dev.databaseUrl": {
           "type": "string",
           "default": "",
-          "markdownDescription": "Database of the dev core: a **throw-away** `postgres://`, `mysql://` or `sqlite://` URL. Empty: SQLite in the dev core folder."
+          "markdownDescription": "Database of the dev core: a **throw-away** `postgres://` or `mysql://` URL. Empty: SQLite, one file per schema in the dev core folder."
         },
         "kubuno.dev.folder": {
           "type": "string",
@@ -293,6 +294,14 @@
           "type": "string",
           "default": "info",
           "description": "RUST_LOG of the dev core."
+        },
+        "kubuno.dev.buildEnv": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "markdownDescription": "Extra environment of the build tasks, e.g. `{\"CARGO_INCREMENTAL\": \"0\", \"CARGO_PROFILE_DEV_DEBUG\": \"1\"}` to keep debug builds small (breakpoints still work)."
         }
       }
     },

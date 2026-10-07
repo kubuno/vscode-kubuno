@@ -29,8 +29,13 @@ export interface KubunoTaskDefinition extends vscode.TaskDefinition {
 /** The environment of every build: the configured Cargo target folder and SQLx's offline cache. */
 export function buildEnv(): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...process.env, SQLX_OFFLINE: 'true', CARGO_TERM_COLOR: 'always', FORCE_COLOR: '1' }
-  const target = vscode.workspace.getConfiguration('kubuno').get<string>('dev.cargoTargetDir')?.trim()
+  // VS Code's extension host sets NO_COLOR; with FORCE_COLOR every Node tool would warn about the pair.
+  delete env.NO_COLOR
+  const cfg = vscode.workspace.getConfiguration('kubuno')
+  const target = cfg.get<string>('dev.cargoTargetDir')?.trim()
   if (target) env.CARGO_TARGET_DIR = target
+  // Extra variables of the builds (e.g. CARGO_INCREMENTAL=0, CARGO_PROFILE_DEV_DEBUG=1 on a small disk).
+  for (const [k, v] of Object.entries(cfg.get<Record<string, string>>('dev.buildEnv') ?? {})) env[k] = String(v)
   return env
 }
 
@@ -111,7 +116,14 @@ class StepsTerminal implements vscode.Pseudoterminal {
     const write = (s: string): void => this.writer.fire(s)
     const started = Date.now()
     for (const step of this.steps) {
-      const code = await step(write, (k) => (this.kill = k))
+      const t0 = Date.now()
+      // A step that throws (a locked file, a missing folder) fails the task instead of leaving it running forever.
+      const code = await step(write, (k) => (this.kill = k)).catch((err: Error) => {
+        write(`[31m${err.message}[0m
+`)
+        return 1
+      })
+      write(`\x1b[2m(${((Date.now() - t0) / 1000).toFixed(1)} s)\x1b[0m\r\n`)
       if (code !== 0 || this.cancelled) {
         write(`\r\n\x1b[31mFailed (exit ${code}) after ${((Date.now() - started) / 1000).toFixed(1)} s\x1b[0m\r\n`)
         this.closer.fire(code || 1)
@@ -133,12 +145,21 @@ export function cargoSteps(c: Checkout, release = false): Step[] {
   return [cmd('cargo', args, c.server)]
 }
 
-/** `npm ci` when `node_modules` is missing, then the build with source maps (for breakpoints in TypeScript). */
+/** Whether `npm ci` / `npm install` completed here (npm writes `node_modules/.package-lock.json` at the end). */
+function installed(web: string): boolean {
+  try {
+    return fs.statSync(path.join(web, 'node_modules', '.package-lock.json')).mtimeMs >= fs.statSync(path.join(web, 'package-lock.json')).mtimeMs
+  } catch {
+    return false
+  }
+}
+
+/** `npm ci` when the dependencies are not installed (or older than the lock), then the build with source maps. */
 export function webBuildSteps(c: Checkout): Step[] {
   if (!c.web) return []
   const web = c.web
   const steps: Step[] = []
-  if (!fs.existsSync(path.join(web, 'node_modules'))) steps.push(cmd('npm', ['ci', '--no-audit', '--no-fund'], web))
+  if (!installed(web)) steps.push(cmd('npm', ['ci', '--no-audit', '--no-fund'], web))
   steps.push(cmd('npm', ['run', 'build', '--', '--sourcemap'], web))
   return steps
 }
@@ -160,9 +181,9 @@ export function tasksFor(c: Checkout, all: Checkout[]): vscode.Task[] {
   }
   if (c.web) {
     const web = c.web
-    out.push(task(c, 'npm-ci', `${c.id}: npm ci (web)`, [cmd('npm', ['ci', '--no-audit', '--no-fund'], web)], []))
+    out.push(task(c, 'npm-ci', `${c.id}: npm ci (web)`, [cmd('npm', ['ci', '--no-audit', '--no-fund'], web)], [], vscode.TaskGroup.Build))
     out.push(task(c, 'web-build', `${c.id}: build web`, webBuildSteps(c), ['$kubuno-tsc'], vscode.TaskGroup.Build))
-    out.push(task(c, 'web-typecheck', `${c.id}: typecheck web (kbview-tsc -b)`, [cmd('npm', ['run', 'typecheck'], web)], ['$kubuno-tsc']))
+    out.push(task(c, 'web-typecheck', `${c.id}: typecheck web (kbview-tsc -b)`, [cmd('npm', ['run', 'typecheck'], web)], ['$kubuno-tsc'], vscode.TaskGroup.Build))
   }
   const core = all.find((x) => x.id === 'core')
   if (c.id !== 'core' && core && c.server) {
@@ -173,8 +194,11 @@ export function tasksFor(c: Checkout, all: Checkout[]): vscode.Task[] {
 
 /** « prepare dev core (<module>) »: builds the core, its web host and the module, then deploys the module. */
 export function prepareTask(core: Checkout, m: Checkout): vscode.Task {
-  const steps: Step[] = [...cargoSteps(core), ...webBuildSteps(core), ...cargoSteps(m), ...webBuildSteps(m), (write) => deployModule(m, devCoreDir(), write)]
-  return task(m, 'prepare-dev-core', `prepare dev core (${m.id})`, steps, ['$kubuno-rustc', '$kubuno-tsc'])
+  // Cargo is incremental and cheap when nothing changed; a web part is built only when it has no build yet (its
+  // « build web » task rebuilds it on demand), so F5 does not pay a Vite build every time.
+  const web = (c: Checkout): Step[] => (c.web && fs.existsSync(path.join(c.web, 'dist')) ? [] : webBuildSteps(c))
+  const steps: Step[] = [...cargoSteps(core), ...web(core), ...cargoSteps(m), ...web(m), (write) => deployModule(m, devCoreDir(), write)]
+  return task(m, 'prepare-dev-core', `prepare dev core (${m.id})`, steps, ['$kubuno-rustc', '$kubuno-tsc'], vscode.TaskGroup.Build)
 }
 
 export class KubunoTaskProvider implements vscode.TaskProvider {
