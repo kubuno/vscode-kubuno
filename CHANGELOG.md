@@ -16,6 +16,7 @@ All notable changes to this extension are documented here (format: Keep a Change
   requests; a built-in fallback when no server exists for the OS.
 - Commands: open designer / XML, view code (F7), create default handler, delete, select parent, new view or
   user control, restart the language server.
+- Activity bar and extension icons use the current Kubuno mark (hexagon and cube).
 - Restricted Mode support: the designer works in an untrusted workspace, the language server starts once it is
   trusted.
 - Integration tests on a real VS Code (`@vscode/test-electron`), screenshot scripts for Linux (Xvfb) and Windows.
