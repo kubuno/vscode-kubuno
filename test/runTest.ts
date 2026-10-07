@@ -68,8 +68,14 @@ async function main(): Promise<void> {
     process.exitCode = 1
   } finally {
     if (!process.env.KUBUNO_KEEP_WS) {
-      fs.rmSync(ws, { recursive: true, force: true })
-      fs.rmSync(path.join(ws, '..', path.basename(ws) + '-profile'), { recursive: true, force: true, maxRetries: 5 })
+      // Best effort: on Windows the profile stays locked a moment after VS Code exits.
+      for (const dir of [ws, path.join(ws, '..', path.basename(ws) + '-profile')]) {
+        try {
+          fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 500 })
+        } catch (err) {
+          console.warn(`could not remove ${dir}: ${(err as Error).message}`)
+        }
+      }
     }
   }
 }

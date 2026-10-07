@@ -1,9 +1,10 @@
-// The Toolbox view: groups of elements, a filter, drag (text/plain `<Name />`) and double-click to insert.
+// The Toolbox view: groups of elements, a filter, drag and drop onto the designer, click-to-place, double-click to insert.
 ;(function () {
   const vscode = acquireVsCodeApi()
   const app = document.getElementById('app')
   const state = vscode.getState() || { filter: '', collapsed: {} }
   let model = null
+  const TOOL_MIME = 'application/vnd.kubuno.toolbox-item'
   let armed = null
   let armTimer = null
 
@@ -64,10 +65,14 @@
         row.dataset.name = i.name
         row.appendChild(el('span', 'kb-icon', initials(i.name)))
         row.appendChild(el('span', 'kb-name', i.name))
+        // A private MIME type only: VS Code hands drags carrying text/plain, URIs or files to the workbench and
+        // blocks the webviews meanwhile; this one stays a plain HTML5 drag the designer page receives.
         row.addEventListener('dragstart', (e) => {
-          e.dataTransfer.setData('text/plain', '<' + i.name + ' />')
+          e.dataTransfer.setData(TOOL_MIME, i.name)
           e.dataTransfer.effectAllowed = 'copy'
+          vscode.postMessage({ type: 'dragStart', name: i.name })
         })
+        row.addEventListener('dragend', () => vscode.postMessage({ type: 'dragEnd' }))
         if (armed === i.name) row.classList.add('kb-armed')
         // A click arms the tool (the next click on the design surface places it); a double-click inserts it
         // into the selection. The click waits a little so a double-click does not arm first.

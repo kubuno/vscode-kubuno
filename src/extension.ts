@@ -128,6 +128,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<Kubuno
   cmd('kubuno.showOutput', () => initLog().show(true))
   cmd('kubuno.newView', (arg) => newView(arg instanceof vscode.Uri ? arg : undefined))
 
+  context.subscriptions.push(vscode.workspace.onDidGrantWorkspaceTrust(() => void ls.restart()))
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration('kubuno.languageServer.path')) void ls.restart()

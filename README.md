@@ -15,8 +15,9 @@ editing protocol. The study behind it, with the feature parity matrix and the pl
   Selecting on the surface moves the XML caret, moving the XML caret selects on the surface. Move, resize,
   reorder, delete, copy/paste and duplicate are written to the XML as ordinary, undoable edits.
 - **Toolbox** — every element of the project's registry, grouped, filterable, with the project's own controls
-  and user controls. Click an item, then click the surface to place it (or double-click to insert it into the
-  selection).
+  and user controls, docked beside the design surface and in the side bar. Drag an item onto the surface (the
+  insertion marker shows where it goes), or click it then click the surface, or double-click it to insert it into
+  the selection.
 - **Properties** — the selection's properties by category with enum and boolean pickers, and its events: ⚡
   creates the handler in the TypeScript code-behind (or opens it). Double-clicking an element creates its
   default event handler.

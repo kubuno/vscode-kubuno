@@ -45,6 +45,11 @@ export class ViewsLanguageServer implements vscode.Disposable {
   }
 
   async start(): Promise<void> {
+    if (!vscode.workspace.isTrusted) {
+      this.setState('missing')
+      log('Restricted Mode: kubuno-views-ls is not started until the workspace is trusted.')
+      return
+    }
     this.executable = this.findExecutable()
     if (!this.executable) {
       this.setState('missing')

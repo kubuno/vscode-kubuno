@@ -26,6 +26,13 @@
   ],
   "icon": "media/kubuno.png",
   "main": "./dist/extension.js",
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "In Restricted Mode the designer, Toolbox and Properties work; the views language server (an executable) is not started.",
+      "restrictedConfigurations": ["kubuno.languageServer.path", "kubuno.designer.hostRuntimePath"]
+    }
+  },
   "activationEvents": [
     "workspaceContains:**/kubuno.views.json",
     "workspaceContains:**/module.toml"
@@ -214,6 +221,11 @@
           "type": "boolean",
           "default": true,
           "description": "Open the view's XML in a text editor beside the designer (the Design | XML split)."
+        },
+        "kubuno.designer.palette": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the Toolbox docked beside the design surface (drag and drop onto the surface works from there)."
         },
         "kubuno.designer.hostRuntimePath": {
           "type": "string",

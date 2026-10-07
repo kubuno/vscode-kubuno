@@ -11,7 +11,7 @@
   unchanged in a VS Code webview behind a 40-line shim that maps WebView2's `window.chrome.webview` onto
   `acquireVsCodeApi()`. The prototype opens the core's `WaffleMenu.kbcontrol` and drive's
   `DuplicatesDialog.kbview` with a clean render on both OSes, with selection sync both ways, Properties edits
-  written as `WorkspaceEdit`s, Toolbox placement through the real page, and handler creation in the TypeScript
+  written as `WorkspaceEdit`s, Toolbox drag and drop (from a palette docked in the designer) through the real page, and handler creation in the TypeScript
   code-behind. 15 integration tests pass on Windows (with `kubuno-views-ls`) and 13 on Linux
   (without it).
 - **The language server does not build outside Windows** (§4): it links `kubuno-desktop-views`, the Win32
@@ -43,14 +43,33 @@ Platform facts the design relies on (all exercised by the prototype):
 - Panels are `WebviewView`s in an activity bar container (Toolbox, Properties) and a `TreeView` (Projects).
   The Document Outline comes for free from the server's `textDocument/documentSymbol` (visible as breadcrumbs in
   `captures/windows-waffle.png`).
-- **Drag and drop between webviews does not work**: VS Code sets `pointer-events: none` on every webview while
-  any drag is in progress (the webview's `dragstart` is forwarded to the workbench). Verified under Xvfb with a
-  real `xdotool` drag, with and without Shift: the ghost follows the mouse, the design page never receives
-  `dragover`. A `TreeDragAndDropController` Toolbox has the same problem (the drag starts in the workbench).
-  **Solution used**: Windows Forms' other gesture — *click a Toolbox item (armed), click the surface to place it* —
-  implemented in the shim by driving the page's existing host-drag protocol (`dragEnter` / `dragOver` / `drop`,
-  the same messages Visual Studio's OLE drop target sends), plus double-click / Enter to insert into the
-  selection. Verified with a real mouse (`captures/linux-place-hover.png`, `linux-place-after.png`).
+- **Toolbox drag and drop.** Measured in VS Code 1.140 (sources of the workbench and of the webview host page
+  read in the installed build, real input with `xdotool` on a live GNOME/Xorg session and under Xvfb):
+  - The webview host page forwards a drag to the workbench only when every item is a *file*; any other HTML5 drag
+    stays inside the webviews. So a private MIME type (`application/vnd.kubuno.toolbox-item`, the same technique
+    as the *WinForms Designer for VS Code* extension's `application/vnd.winforms-toolbox-item`) is the right
+    payload — `text/plain` is not needed, and during the drag only the types are readable, so the item's name is
+    sent ahead through the extension.
+  - **But the workbench blocks the editor's webview** as soon as a drag passes over workbench DOM: every visible
+    webview editor registers a listener on the main window that sets `pointer-events: none` on its iframe on
+    `dragover` (and lifts it only for `dragover` with Shift, `dragend`, or a mouse move without buttons). A drag
+    from the side bar Toolbox (a `WebviewView`) to the designer always crosses the sash, so the design page never
+    sees `dragenter` (logged: the Toolbox's `dragstart`/`dragend` arrive, the page gets nothing — with or without
+    Shift, measured on the live session). A `TreeDragAndDropController` Toolbox starts its drag in the workbench
+    and is blocked the same way. Whatever the WinForms extension does, a cross-webview drop into an editor
+    webview is not reliable in this VS Code version.
+  - **Solution: the Toolbox docked inside the designer webview** (a palette beside the surface, collapsible,
+    filter, same groups as the side bar view, setting `kubuno.designer.palette`). The drag never leaves the page:
+    native HTML5 drag and drop with the private type, translated in the shim (`media/designer-shim.js`) into the
+    page's host-drag protocol (`dragEnter` / `dragOver` / `drop` / `dragLeave`, the messages Visual Studio's OLE
+    drop target sends), so the page draws its own insertion markers while hovering and inserts at the pointer —
+    the WinForms behaviour. Verified with real input on the live Xorg session of 192.168.1.100 and under Xvfb
+    (`captures/linux-drag-hover.png`, `linux-drag-after.png`: a `Label` dropped between the header's label and
+    its pencil, at the marker).
+  - Kept as alternatives: click an item (palette or side bar Toolbox) to arm it, then click the surface
+    (Windows Forms' other gesture; `linux-place-*.png`); double-click / Enter inserts into the selection. The side
+    bar Toolbox keeps its drag code, which works whenever VS Code lets the drag through (no workbench pixel
+    crossed, e.g. a future VS Code).
 
 ## 3. What is reused as is
 
@@ -132,7 +151,7 @@ Effort: S ≤ 2 days, M ≤ 1 week, L ≤ 3 weeks, XL more.
 |---|---|---|---|
 | Web designer surface (render, selection, move/resize, reorder, keyboard, context menu) | ✅ | S | all from the page; context menu = QuickPick (no native menu at a point in webviews) |
 | Design \| XML split, selection sync both ways | ✅ | — | |
-| Toolbox (registry tabs, filter, project controls, user controls) | ✅ click-to-place, double-click insert | S | icons (Lucide set as in VS) |
+| Toolbox (registry tabs, filter, project controls, user controls) | ✅ drag and drop from the palette docked in the designer, click-to-place, double-click insert | S | icons (Lucide set as in VS) |
 | Properties (categories, enums, booleans, text, unknown attributes) | ✅ | M | binding picker (`kubuno/bindingPaths`), icon picker, resource picker, collection editors |
 | Events tab, ⚡ new handler, double-click handler | ✅ (LS on Windows, fallback elsewhere) | S | compatible-handlers dropdown (`kubuno/compatibleHandlers`) |
 | F7 / Shift+F7 | ✅ | — | |
@@ -180,4 +199,15 @@ desktop designer and the WinForms-grade Properties window for nothing in return 
 
 Verified 2026-10-07: Windows 11 (VS Code 1.140, `kubuno-views-ls` of vskubuno, 175 % DPI): 15/15 tests (with the screenshot run); Ubuntu
 24.04 under Xvfb (VS Code 1.140, no server): 13/13, the language-server test skipped; VSIX (2.8 MB) installs. Limits: no project-mode
-page, no desktop views, toolbox drag replaced by click-to-place, Properties editors are plain fields.
+page, no desktop views, drag and drop only from the palette docked in the designer (not from the side bar view), Properties editors are plain fields.
+
+**Live Linux desktop (2026-10-07, 192.168.1.100, Ubuntu 24.04.5, GNOME on Xorg, VS Code 1.140 snap, the VSIX
+installed with `code --install-extension`, clones of `core` and `drive` from GitLab):** the designer renders
+WaffleMenu and drive's DriveSettingsPage; the palette's drag and drop inserts at the marker; a click on the surface
+selects the element, moves the XML caret and fills Properties; `Text` edited in Properties is written to the XML
+and rendered; a double-click creates `label_click` in `WaffleMenu.ts` (built-in fallback, no language server on
+Linux); F7 opens the code-behind. Differences from Xvfb: none in behaviour; the window manager and DPI are real,
+and a first opening of a folder is in **Restricted Mode** — the extension now declares limited support (designer
+on, language server off until the workspace is trusted). In bundled mode drive's own translations are not loaded
+(keys such as `drive_settings_title` show), as in Visual Studio's bundled mode — the project-mode page (VSC-2)
+loads them.

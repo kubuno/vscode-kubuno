@@ -1,14 +1,13 @@
 #!/usr/bin/env bash
-# Real mouse placement of a Toolbox item on the design surface under Xvfb (xdotool): a click on the Toolbox item
-# arms it, a click on the surface places it. Screenshots before, while hovering and after:
-#   xvfb-run -a -s "-screen 0 1600x1000x24" bash scripts/place-linux.sh <out-dir> <itemX> <itemY> <toX> <toY>
-# (An HTML5 drag from the Toolbox view cannot reach the designer: VS Code blocks pointer events on every webview
-# while something is dragged — `scripts/` history and docs/VSCODE.md §5.)
+# Real mouse Toolbox gestures under Xvfb (xdotool), with screenshots while hovering and after:
+#   xvfb-run -a -s "-screen 0 1600x1000x24" bash scripts/place-linux.sh <out-dir> <mode> <itemX> <itemY> <toX> <toY>
+# mode = drag : drag the item from the palette docked in the designer and drop it on the surface;
+#        place: click the item (side bar Toolbox or palette) to arm it, then click the surface.
 set -euo pipefail
-out=$1; fx=$2; fy=$3; tx=$4; ty=$5
+out=$1; mode=$2; fx=$3; fy=$4; tx=$5; ty=$6
 mkdir -p "$out"
 start=$(date +%s)
-KUBUNO_DEMO=25 KUBUNO_DEMO_FILE=waffle node out/test/runTest.js >"$out/run-place.log" 2>&1 &
+KUBUNO_DEMO=25 KUBUNO_DEMO_FILE=waffle node out/test/runTest.js >"$out/run-$mode.log" 2>&1 &
 pid=$!
 for _ in $(seq 1 600); do
   marker=$(ls -t /tmp/kubuno-vscode-ws-*/demo-ready 2>/dev/null | head -1 || true)
@@ -16,15 +15,20 @@ for _ in $(seq 1 600); do
   sleep 0.5
 done
 sleep 4
-xdotool mousemove "$fx" "$fy" click 1
-sleep 1
-for k in $(seq 1 15); do
-  xdotool mousemove $(( fx + (tx - fx) * k / 15 )) $(( fy + (ty - fy) * k / 15 )); sleep 0.05
+import -window root "$out/linux-$mode-before.png"
+xdotool mousemove "$fx" "$fy"
+if [ "$mode" = drag ]; then
+  sleep 0.3; xdotool mousedown 1; sleep 0.2
+else
+  xdotool click 1; sleep 1
+fi
+for k in $(seq 1 20); do
+  xdotool mousemove $(( fx + (tx - fx) * k / 20 )) $(( fy + (ty - fy) * k / 20 )); sleep 0.05
 done
 sleep 0.7
-import -window root "$out/linux-place-hover.png"
-xdotool click 1
+import -window root "$out/linux-$mode-hover.png"
+if [ "$mode" = drag ]; then xdotool mouseup 1; else xdotool click 1; fi
 sleep 2
-import -window root "$out/linux-place-after.png"
-echo "captured $out/linux-place-*.png"
+import -window root "$out/linux-$mode-after.png"
+echo "captured $out/linux-$mode-*.png"
 wait $pid

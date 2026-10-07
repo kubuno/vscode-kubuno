@@ -3,7 +3,8 @@
  *
  * - **Toolbox**: the elements of the active view's registry (the language server's `kubuno/registry`, else the
  *   project's registry files), grouped like Visual Studio's Toolbox tabs, filterable. An item is dragged onto the
- *   design surface as `text/plain` `<Name />` (the page's HTML5 drop path, `toolboxComponentOf`), or inserted
+ *   design surface (HTML5 drag with the private type `application/vnd.kubuno.toolbox-item`, insertion markers
+ *   while hovering, dropped at the pointer), armed by a click then placed by a click on the surface, or inserted
  *   into the selection with a double-click / Enter.
  * - **Properties**: the selected element's properties by category (enum lists, booleans, text), its events
  *   (⚡ creates or opens the handler), and `x:Name`. A change applies a `WorkspaceEdit` to the XML.
@@ -12,6 +13,8 @@ import * as crypto from 'node:crypto'
 import * as vscode from 'vscode'
 import type { DesignerProvider, DesignerSession } from '../designer/designerProvider'
 import type { RegistryComponent, RegistryProperty } from '../project/webProject'
+import { log } from '../log'
+import { toolboxGroups } from './toolboxModel'
 
 function pageHtml(webview: vscode.Webview, extensionUri: vscode.Uri, script: string, title: string): string {
   const nonce = crypto.randomBytes(16).toString('base64')
@@ -22,18 +25,6 @@ function pageHtml(webview: vscode.Webview, extensionUri: vscode.Uri, script: str
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="${css}"><title>${title}</title></head>
 <body><div id="app"></div><script nonce="${nonce}" src="${js}"></script></body></html>`
-}
-
-const FAMILY_LABELS: Record<string, string> = {
-  core: 'Common Controls',
-  containers: 'Containers',
-  text: 'Text',
-  display: 'Display',
-  choice: 'Choice',
-  data: 'Data',
-  docking: 'Docking',
-  navigation: 'Navigation',
-  components: 'Components',
 }
 
 export class ToolboxView implements vscode.WebviewViewProvider {
@@ -56,6 +47,10 @@ export class ToolboxView implements vscode.WebviewViewProvider {
       else if (m.type === 'insert' && m.name) {
         this.designers.armTool(null)
         await this.designers.active?.insertComponent(m.name)
+      } else if (m.type === 'dragStart' || m.type === 'dragEnd') {
+        // The item's name goes ahead to every designer: during an HTML5 drag the page can read only the types.
+        this.designers.broadcastToolDrag(m.type === 'dragStart' ? (m.name ?? null) : null)
+        log(`toolbox ${m.type} ${m.name ?? ''}`)
       } else if (m.type === 'arm') {
         if (!this.designers.armTool(m.name ?? null)) void this.view?.webview.postMessage({ type: 'disarmed' })
       }
@@ -67,22 +62,10 @@ export class ToolboxView implements vscode.WebviewViewProvider {
     if (!this.view) return
     const s = this.designers.active
     const registry = s ? await s.service.registry(s.document) : null
-    const groups = new Map<string, { name: string; doc: string; project: boolean }[]>()
-    for (const c of registry?.components ?? []) {
-      if (c.browsable === false) continue
-      const project = c.origin === 'project'
-      const group = project ? 'Project Controls' : (c.toolbox_category as string) || FAMILY_LABELS[c.family ?? ''] || c.family || 'Other'
-      if (!groups.has(group)) groups.set(group, [])
-      groups.get(group)!.push({ name: c.name, doc: c.doc ?? '', project })
-    }
-    for (const u of registry?.userControls ?? []) {
-      if (!groups.has('User Controls')) groups.set('User Controls', [])
-      groups.get('User Controls')!.push({ name: u.name, doc: u.module, project: true })
-    }
     void this.view.webview.postMessage({
       type: 'toolbox',
       file: s ? vscode.workspace.asRelativePath(s.document.uri) : null,
-      groups: [...groups.entries()].map(([name, items]) => ({ name, items: items.sort((a, b) => a.name.localeCompare(b.name)) })),
+      groups: toolboxGroups(registry),
     })
   }
 }

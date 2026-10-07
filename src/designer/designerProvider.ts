@@ -14,6 +14,7 @@ import type { EditOp } from '../views/kbviewModel'
 import type { ViewService } from '../views/viewService'
 import { codeBehindClass, codeBehindOf, designDataOf, relativeToRoot, type RegistryComponent } from '../project/webProject'
 import { designHostDir, designPageHtml, hostRuntimeVersion } from './designHost'
+import { toolboxGroups } from '../views/toolboxModel'
 
 export const VIEW_TYPE = 'kubuno.viewDesigner'
 
@@ -85,6 +86,7 @@ export class DesignerSession implements vscode.Disposable {
     })
     this.post({ type: 'setText', text: doc.getText(), baseDir: path.dirname(file) })
     this.post({ type: 'setDesignMode', on: true })
+    this.post({ type: 'kbPalette', groups: toolboxGroups(registry), enabled: vscode.workspace.getConfiguration('kubuno').get<boolean>('designer.palette', true) })
     this.post({ type: 'setDesignOptions', containerOutlines: true })
     if (this.selection !== null) this.post({ type: 'select', id: this.selection })
   }
@@ -148,6 +150,13 @@ export class DesignerSession implements vscode.Disposable {
         break
       case 'unhandledKey':
         await this.unhandledKey(m)
+        break
+      case 'kbInsert':
+        await this.insertComponent(String(m.name))
+        break
+      case 'kbToolDropped':
+        log(`toolbox drop: ${String(m.name)}`)
+        this.owner.setCurrent(this)
         break
       case 'kbToolDisarmed':
         this.owner.fireToolDisarmed(m.used === true)
@@ -347,6 +356,11 @@ export class DesignerProvider implements vscode.CustomTextEditorProvider {
     this.toolDisarmed.fire(used)
   }
 
+  /** Tells every open design page which Toolbox item is being dragged (null: the drag ended). */
+  broadcastToolDrag(name: string | null): void {
+    for (const s of this.sessions) s.post({ type: 'kbToolDrag', name })
+  }
+
   /** Arms a Toolbox item on the current designer: the next click on the surface places it (null disarms). */
   armTool(name: string | null): boolean {
     const s = this.current
@@ -388,7 +402,7 @@ export class DesignerProvider implements vscode.CustomTextEditorProvider {
 
   async resolveCustomTextEditor(document: vscode.TextDocument, panel: vscode.WebviewPanel): Promise<void> {
     const dir = designHostDir(this.context)
-    const roots = [vscode.Uri.file(dir), ...(vscode.workspace.workspaceFolders ?? []).map((f) => f.uri)]
+    const roots = [vscode.Uri.file(dir), vscode.Uri.joinPath(this.context.extensionUri, 'media'), ...(vscode.workspace.workspaceFolders ?? []).map((f) => f.uri)]
     panel.webview.options = { enableScripts: true, localResourceRoots: roots }
     const session = new DesignerSession(document, panel, this)
     this.sessions.add(session)
@@ -422,7 +436,7 @@ export class DesignerProvider implements vscode.CustomTextEditorProvider {
       if (this.current === session) this.setCurrent([...this.sessions].pop() ?? null)
     })
 
-    panel.webview.html = designPageHtml(panel.webview, dir)
+    panel.webview.html = designPageHtml(panel.webview, dir, this.context.extensionUri)
     this.setCurrent(session)
 
     if (vscode.workspace.getConfiguration('kubuno').get<boolean>('designer.openXmlBeside', true)) {
