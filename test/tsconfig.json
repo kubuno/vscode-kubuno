@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "outDir": "../out",
+    "rootDir": "..",
+    "types": ["node", "mocha", "vscode"]
+  },
+  "include": [".", "../src/views/kbviewModel.ts", "../src/views/handlerFallback.ts"]
+}

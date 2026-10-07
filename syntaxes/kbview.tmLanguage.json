@@ -1,0 +1,6 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Kubuno View",
+  "scopeName": "text.xml.kbview",
+  "patterns": [{ "include": "text.xml" }]
+}

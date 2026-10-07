@@ -1,0 +1,11 @@
+**
+!dist/extension.js
+!dist/design-host/**
+!media/**
+!syntaxes/**
+!bin/**
+!language-configuration.json
+!package.json
+!README.md
+!CHANGELOG.md
+!LICENSE

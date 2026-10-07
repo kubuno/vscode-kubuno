@@ -1,0 +1,249 @@
+{
+  "name": "vscode-kubuno",
+  "displayName": "Kubuno",
+  "description": "Design and edit Kubuno views (.kbview / .kbcontrol) in Visual Studio Code on any OS: visual designer, Toolbox, Properties, the Kubuno views language server.",
+  "version": "0.1.0",
+  "publisher": "kubuno",
+  "license": "AGPL-3.0-or-later",
+  "homepage": "https://github.com/kubuno/vscode-kubuno",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kubuno/vscode-kubuno.git"
+  },
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Visualization",
+    "Other"
+  ],
+  "keywords": [
+    "kubuno",
+    "kbview",
+    "designer",
+    "xml"
+  ],
+  "icon": "media/kubuno.png",
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "workspaceContains:**/kubuno.views.json",
+    "workspaceContains:**/module.toml"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "kbview",
+        "aliases": [
+          "Kubuno View",
+          "kbview"
+        ],
+        "extensions": [
+          ".kbview",
+          ".kbcontrol"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "kbview",
+        "scopeName": "text.xml.kbview",
+        "path": "./syntaxes/kbview.tmLanguage.json"
+      }
+    ],
+    "customEditors": [
+      {
+        "viewType": "kubuno.viewDesigner",
+        "displayName": "Kubuno View Designer",
+        "selector": [
+          {
+            "filenamePattern": "*.kbview"
+          },
+          {
+            "filenamePattern": "*.kbcontrol"
+          }
+        ],
+        "priority": "default"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "kubuno",
+          "title": "Kubuno",
+          "icon": "media/kubuno-activity.svg"
+        }
+      ]
+    },
+    "views": {
+      "kubuno": [
+        {
+          "id": "kubuno.explorer",
+          "name": "Projects",
+          "icon": "media/kubuno-activity.svg"
+        },
+        {
+          "type": "webview",
+          "id": "kubuno.toolbox",
+          "name": "Toolbox"
+        },
+        {
+          "type": "webview",
+          "id": "kubuno.properties",
+          "name": "Properties"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "kubuno.openDesigner",
+        "title": "Open in Kubuno View Designer",
+        "category": "Kubuno",
+        "icon": "$(layout)"
+      },
+      {
+        "command": "kubuno.openXml",
+        "title": "Open XML Beside",
+        "category": "Kubuno",
+        "icon": "$(code)"
+      },
+      {
+        "command": "kubuno.toggleCodeBehind",
+        "title": "View Code / View Designer",
+        "category": "Kubuno",
+        "icon": "$(go-to-file)"
+      },
+      {
+        "command": "kubuno.createDefaultHandler",
+        "title": "Create Default Event Handler for the Selection",
+        "category": "Kubuno"
+      },
+      {
+        "command": "kubuno.deleteSelection",
+        "title": "Delete Selected Element",
+        "category": "Kubuno"
+      },
+      {
+        "command": "kubuno.selectParent",
+        "title": "Select Parent Element",
+        "category": "Kubuno"
+      },
+      {
+        "command": "kubuno.restartLanguageServer",
+        "title": "Restart the Views Language Server",
+        "category": "Kubuno"
+      },
+      {
+        "command": "kubuno.refreshExplorer",
+        "title": "Refresh",
+        "category": "Kubuno",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "kubuno.newView",
+        "title": "New View or User Control…",
+        "category": "Kubuno",
+        "icon": "$(new-file)"
+      },
+      {
+        "command": "kubuno.showOutput",
+        "title": "Show Output",
+        "category": "Kubuno"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "kubuno.openXml",
+          "when": "activeCustomEditorId == kubuno.viewDesigner",
+          "group": "navigation@1"
+        },
+        {
+          "command": "kubuno.toggleCodeBehind",
+          "when": "activeCustomEditorId == kubuno.viewDesigner || resourceExtname == .kbview || resourceExtname == .kbcontrol",
+          "group": "navigation@2"
+        },
+        {
+          "command": "kubuno.openDesigner",
+          "when": "(resourceExtname == .kbview || resourceExtname == .kbcontrol) && activeCustomEditorId != kubuno.viewDesigner",
+          "group": "navigation@1"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "kubuno.refreshExplorer",
+          "when": "view == kubuno.explorer",
+          "group": "navigation"
+        },
+        {
+          "command": "kubuno.newView",
+          "when": "view == kubuno.explorer",
+          "group": "navigation"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "kubuno.openDesigner",
+          "when": "resourceExtname == .kbview || resourceExtname == .kbcontrol",
+          "group": "navigation"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "kubuno.toggleCodeBehind",
+        "key": "f7",
+        "when": "activeCustomEditorId == kubuno.viewDesigner || resourceExtname == .kbview || resourceExtname == .kbcontrol"
+      },
+      {
+        "command": "kubuno.openDesigner",
+        "key": "shift+f7",
+        "when": "editorTextFocus && resourceExtname =~ /\\.(kbview|kbcontrol|ts)$/"
+      }
+    ],
+    "configuration": {
+      "title": "Kubuno",
+      "properties": {
+        "kubuno.languageServer.path": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Path of the `kubuno-views-ls` executable. Empty: the one shipped with the extension for this platform, else `kubuno-views-ls` on the `PATH`. Without it, the designer falls back to its built-in XML editor (no completion, handlers written by the extension)."
+        },
+        "kubuno.designer.openXmlBeside": {
+          "type": "boolean",
+          "default": true,
+          "description": "Open the view's XML in a text editor beside the designer (the Design | XML split)."
+        },
+        "kubuno.designer.hostRuntimePath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Folder of a `@kubuno/host-runtime` build (`dist/`) to use instead of the one shipped with the extension."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "build": "node esbuild.mjs --production",
+    "watch": "node esbuild.mjs --watch",
+    "typecheck": "tsc -p .",
+    "pretest": "node esbuild.mjs && tsc -p test",
+    "test": "node out/test/runTest.js",
+    "package": "vsce package --no-dependencies"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@kubuno/host-runtime": "0.1.2",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^20.17.0",
+    "@types/vscode": "^1.95.0",
+    "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.2.2",
+    "esbuild": "^0.25.0",
+    "mocha": "^11.1.0",
+    "typescript": "^5.7.3"
+  }
+}
