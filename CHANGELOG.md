@@ -6,6 +6,10 @@ All notable changes to this extension are documented here (format: Keep a Change
 
 ### Added
 
+- Native desktop apps: build tasks (`<id>: desktop build <bin>`, and all apps of the OS) and launch
+  configurations (`Kubuno: <bin> (desktop)`) for every checkout with a `desktop/` Cargo workspace, for the
+  running OS; Kubuno Desktop runs as a developer instance in a sandboxed profile. Commands « Kubuno: Debug
+  Desktop App… » and « Run Desktop App… ». Test matrix part 3 (desktop, Linux / Windows).
 - Kubuno View Designer for web `.kbview` / `.kbcontrol` files: the `@kubuno/host-runtime` design page in a
   webview, the XML beside it, selection synchronised both ways, every gesture written to the XML as an undoable
   edit.

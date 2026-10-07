@@ -168,6 +168,104 @@ and the builds re-run with `CARGO_TARGET_DIR=~/kubuno/target`, `CARGO_INCREMENTA
 and a guard that stops cargo under 3 GB free (never triggered; lowest: 8.2 GB free). The 588 s of the failed run
 are not comparable and are not in the table. With these settings the target stayed ≈ 3 GB for the core.
 
+## Part 3 — the native desktop apps, Linux and Windows (partial: paused 2026-10-07)
+
+The extension now also contributes the **native desktop apps** of every checkout that has a `desktop/` Cargo
+workspace (`src/dev/desktop.ts`): the apps of the running OS are the binaries of the workspace members under its
+folder (`windows/`, `linux/`, `macos/`), tools (`*-tool`, `*-ls`) left out.
+
+- Tasks: `<id>: desktop build <bin>` (`cargo build -p <package> --bin <bin>` in `<checkout>/desktop`) and
+  `<id>: desktop build (all <os> apps)`.
+- Launch configurations: `Kubuno: <bin> (desktop)` (`"target": "desktop"`, `"app": "<bin>"`), the debug build
+  under CodeLLDB / cppvsdbg / gdb, the build task as pre-launch task. Kubuno Desktop gets `--dev-instance vscode`
+  (it is single-instance per session); every run uses a sandboxed profile (`KUBUNO_SANDBOX_DIR` in the
+  extension's storage) unless `"sandbox": false`. On Linux/macOS the program gets the integrated terminal (the
+  entry points are text interfaces today).
+- Commands **Kubuno: Debug Desktop App…** / **Run Desktop App…**: one quick pick of the desktop apps (the « Select
+  and Start Debugging » list nests contributed configurations in a group, awkward to reach).
+
+### What exists per OS
+
+| Workspace | Windows (`windows/`) | Linux (`linux/`) |
+|---|---|---|
+| core | `kubuno-desktop` (Win32 + Direct2D shell) | `kubuno-desktop`: the portable app with the **text interface** (no window) |
+| office | Documents, Spreadsheets, Presentations, Diagrams, Projects (windows) | `kubuno-documents` only, text rendering of the document; no entry point for the four other apps |
+| drive | `drive` (Win32 file manager) | `kubuno-drive-desktop`, text listing of a folder (binary name differs from Windows) |
+| chat | `kubuno-chat` (standalone `windows/` crate) | nothing (README only) |
+
+`common/` has no unconditional Windows dependency in any workspace (only `cfg(windows)` `windows-sys` for the
+OS services, each with a Unix counterpart: Unix socket broker, `flock` single-instance, Secret Service). There is
+**no Linux GUI backend at all**: every window, control, menu, popup and dialog is in the Win32/Direct2D crates of
+`windows/`. `cargo check --workspace` on Linux (core): every `common/` and `linux/` crate checks; the failures are
+the Windows framework (`windows-future` does not compile off Windows, and `windows/kubuno-desktop-shell`'s
+`build.rs` panics) — expected, CI selects packages per OS.
+
+### Scenarios (real input in VS Code, isolated profiles, `CARGO_INCREMENTAL=0`, `CARGO_PROFILE_DEV_DEBUG=1`; Linux `-j 3`)
+
+| Scenario | Linux (.100) | Windows (.101) | Notes |
+|---|---|---|---|
+| Desktop tasks listed (Ctrl+Shift+B) | OK (core/office/drive Linux apps) | OK (shell, 5 office apps, drive) | `tasklist.png` |
+| Kubuno Desktop: clean build (task) | OK — 86 s | OK — 149 s | Windows builds the whole Win32 framework; Linux only `common/` |
+| Kubuno Desktop: incremental, one shared file touched | OK — 2.6 s | OK — 11.6 s | `shell-common/src/instance.rs` |
+| Kubuno Documents: clean build (task) | OK — 194 s | OK — 1 319 s | Windows: framework from the git tag + vendored OpenSSL/SQLCipher, another agent's `cargo check` ran meanwhile |
+| Drive desktop: clean build (task) | OK — 25 s | not run (paused) | drive pins `desktop-v0.1.1-alpha` (office: 0.1.2) |
+| Rust error in the Problems panel | OK (`E0308`, absolute path) | not re-run (part 2: OK) | |
+| F5: Kubuno Desktop under CodeLLDB | OK — text output, exit 0 | OK — window, offline sample | Windows switches to the sample under a debugger; Linux does not (shows 0 sync folders) |
+| Breakpoint in shared code (`shell-common/src/instance.rs:36`) | OK | OK | both open a second tab for the real path of the file (link / junction); Windows also lists the breakpoint twice |
+| F5: Documents | OK — text rendering of the sample | not captured (paused) | |
+| Single instance: second launch hands off (`--page settings`) | N/A (the text app exits at once) | OK — exits in 0.1 s, the first switches to Settings | `win-shell-handoff-settings.png` |
+| Window chrome, menus, popups, dialogs, DPI, IME, clipboard, file dialogs, tray | N/A — no window on Linux | OK (popups: avatar, menu, bell) | the side-by-side montages need a Linux window first |
+
+Captures: `C:\kubuno-build\agent-vscode\desktop-compare\{linux,windows}\`.
+
+### Fixes made during part 3
+
+- Extension: desktop tasks, launch configurations and the two commands above; activation on `desktop/Cargo.toml`.
+- core (`windows/kubuno-desktop-header-data/build.rs`): the launcher's built-in logos were looked up in
+  `core/frontend/public`, the web host's former folder, so every build embedded **none** (`cargo:warning=…
+  not found`). It now reads `web/public` of the core checkout it belongs to (also the git checkout of a module app
+  built against a `desktop-v*` tag), then `core/web/public` around it: 38 logos embedded again. Not OS-specific.
+
+### Gaps, ranked by impact
+
+1. **No Linux GUI** (shell, office, drive, chat): a Linux backend for the framework's platform layer — window and
+   input (X11 + Wayland), a renderer (wgpu or tiny-skia + softbuffer in place of Direct2D/DirectWrite), text
+   shaping (cosmic-text/swash), IME (text-input-v3 / XIM), clipboard, popups — under the existing controls.
+   Estimate: 8–12 weeks for one developer to reach the shell at parity, then 1–2 weeks per app.
+2. Office: Linux entry point for Documents only — the four other apps have portable `common/` crates but no
+   `linux/` binary (≈ 1 day for the text entry points; their GUI depends on 1).
+3. Chat has no `common/` crate: its logic lives in the Windows crate (≈ 1–2 weeks to split).
+4. Drive pins `desktop-v0.1.1-alpha`, Linux binary `kubuno-drive-desktop` vs `drive` on Windows (≈ 1 hour).
+5. The Linux entry points do not enter the offline sample under a debugger like the Windows ones (≈ 1 hour).
+
+### Linux: same look on every DE (requirement of 2026-10-07)
+
+Rule: the Kubuno apps look identical under GNOME, KDE, XFCE, MATE…, X11 or Wayland, any theme. What it implies for
+the Linux backend of gap 1 (none of it exists yet, so nothing can be compared across DEs today):
+
+- Everything Kubuno-drawn (as on Windows): no GTK/Qt widget, no theme colours; own icons; own scrollbars.
+- Client-side decorations: title bar, buttons, corners, resize borders and shadow drawn by Kubuno; ask the WM for
+  none (`xdg-decoration` `client_side` on Wayland — GNOME never offers server decorations anyway;
+  `_MOTIF_WM_HINTS` decorations = 0 on X11). Without a compositor (plain XFCE/MATE, `_NET_WM_CM_S0` unowned):
+  square corners, a 1 px border instead of the shadow, no transparent margin.
+- Popups and menus are our own surfaces (`xdg-popup` on Wayland, override-redirect windows on X11), positioned by us.
+- Fonts: the system font by rule, but bundle one fallback (metrics differ per DE: layouts must not depend on them).
+- Scale: one effective scale from `wp-fractional-scale` (Wayland), else `Xft.dpi` / `GDK_SCALE` (X11).
+- Dark/light: `org.freedesktop.appearance color-scheme` through the portal, our palette.
+- File pickers: the xdg-desktop-portal FileChooser looks native (differs per DE) but brings sandbox access and
+  the user's bookmarks; a Kubuno-drawn picker looks the same everywhere but must re-implement places, mounts and
+  recent files. Recommendation: portal by default, Kubuno picker as an option — to be decided by the user.
+
+A probe script for nested Xephyr sessions (one WM per display, a window with and without MWM hints, compositor
+and `Xft.dpi` read back) was prepared but not run: no DE package was installed on .100.
+
+### Where I stopped / next steps
+
+Paused on request. Next: Windows Documents/Spreadsheets/Drive launched from the new commands and captured;
+Problems panel on Windows for a desktop crate; run the office and drive `cargo check --workspace` on Linux (core
+done); the DE probe once a Linux window exists (or now, with MWM hints on a stand-in window) and the montages
+(Linux left, Windows right) in `desktop-compare\`.
+
 ## Cleaning up
 
 - .100: VS Code closed, dev core stopped, `kubuno_vscode_test` dropped, PostgreSQL stopped and disabled, targets

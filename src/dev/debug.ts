@@ -9,15 +9,70 @@
  * - `"target": "browser"` — the module's page in a browser debugged by VS Code's JavaScript debugger, with the
  *   source maps of the module's `web/dist` (breakpoints in the TypeScript of `web/src`).
  */
+import * as fs from 'node:fs'
 import * as http from 'node:http'
 import * as path from 'node:path'
 import * as vscode from 'vscode'
 import { log } from '../log'
 import { devCoreDir, devCoreEnv, devPort, stopDevModules } from './devCore'
-import { cargoOut, exe, TASK_TYPE } from './tasks'
-import { findCheckouts } from './workspace'
+import { buildEnv, cargoOut, exe, TASK_TYPE } from './tasks'
+import { type Checkout, findCheckouts } from './workspace'
+import { desktopApps, desktopDefaultArgs, desktopOs, desktopOut, desktopTaskLabel } from './desktop'
 
 export const DEBUG_TYPE = 'kubuno'
+
+let desktopSandbox: string | null = null
+
+/** The sandboxed profile of desktop runs (`KUBUNO_SANDBOX_DIR`): one folder, so the apps share its accounts and broker. */
+export function initDesktopSandbox(context: vscode.ExtensionContext): void {
+  desktopSandbox = path.join(context.globalStorageUri.fsPath, 'desktop-sandbox')
+}
+
+/** « Kubuno: Debug Desktop App… » / « Run Desktop App… »: picks a desktop app of the running OS and starts it. */
+export async function pickDesktopApp(noDebug: boolean): Promise<void> {
+  const all = findCheckouts()
+  const apps = all.flatMap((c) => desktopApps(c).map((a) => ({ a, folder: c.folder })))
+  if (apps.length === 0) return void vscode.window.showInformationMessage(`Kubuno: no desktop app for ${desktopOs()} in the workspace.`)
+  const pick = await vscode.window.showQuickPick(
+    apps.map(({ a, folder }) => ({ label: a.bin, description: `${a.id} · ${a.pkg}`, a, folder })),
+    { placeHolder: noDebug ? 'Desktop app to run' : 'Desktop app to debug', matchOnDescription: true },
+  )
+  if (!pick) return
+  await vscode.debug.startDebugging(pick.folder, { type: DEBUG_TYPE, request: 'launch', name: `Kubuno: ${pick.a.bin} (desktop)`, target: 'desktop', module: pick.a.id, app: pick.a.bin }, { noDebug })
+}
+
+/**
+ * `"target": "desktop"`: a native desktop app of the running OS (`desktop.ts`), its debug build under the native
+ * debugger, with its build task as pre-launch task.
+ */
+async function resolveDesktop(config: vscode.DebugConfiguration, all: Checkout[]): Promise<vscode.DebugConfiguration | undefined> {
+  const apps = all.flatMap((c) => desktopApps(c))
+  const a = apps.find((x) => x.bin === config.app && (!config.module || x.id === config.module)) ?? apps.find((x) => x.bin === config.app)
+  if (!a) return void vscode.window.showErrorMessage(`Kubuno: no desktop app "${String(config.app)}" for ${desktopOs()} in the workspace (${apps.map((x) => x.bin).join(', ') || 'none'}).`)
+  const type = nativeDebugger()
+  if (!type) {
+    const pick = await vscode.window.showErrorMessage('Kubuno: debugging a desktop app needs CodeLLDB (or the C/C++ extension).', 'Install CodeLLDB')
+    if (pick) await vscode.commands.executeCommand('workbench.extensions.installExtension', 'vadimcn.vscode-lldb')
+    return undefined
+  }
+  const program = path.join(desktopOut(a.workspace, buildEnv()), exe(a.bin))
+  const args: string[] = Array.isArray(config.args) ? config.args.map(String) : desktopDefaultArgs(a.bin)
+  const env: Record<string, string> = {}
+  if (config.sandbox !== false && desktopSandbox) {
+    fs.mkdirSync(desktopSandbox, { recursive: true })
+    env.KUBUNO_SANDBOX_DIR = desktopSandbox
+  }
+  if (config.env && typeof config.env === 'object') for (const [k, v] of Object.entries(config.env as Record<string, unknown>)) env[k] = String(v)
+  log(`desktop: ${program} ${args.join(' ')}, debugger ${type}${env.KUBUNO_SANDBOX_DIR ? `, sandbox ${env.KUBUNO_SANDBOX_DIR}` : ''}`)
+  const base = { name: config.name, request: 'launch', program, args, cwd: a.workspace, preLaunchTask: config.preLaunchTask ?? `${TASK_TYPE}: ${desktopTaskLabel(a)}`, noDebug: config.noDebug }
+  // The Linux and macOS entry points run the portable app's text interface today: it reads the terminal, so it gets
+  // one; the Windows apps are windows (their log goes to the debug console).
+  const terminal = process.platform !== 'win32'
+  if (type === 'lldb') return { ...base, type, env, sourceLanguages: ['rust'], breakpointMode: 'file', terminal: terminal ? 'integrated' : 'console' }
+  const environment = Object.entries(env).map(([name, value]) => ({ name, value }))
+  if (type === 'cppvsdbg') return { ...base, type, environment, console: 'internalConsole' }
+  return { ...base, type, environment, MIMode: 'gdb', externalConsole: false }
+}
 
 function nativeDebugger(): 'lldb' | 'cppvsdbg' | 'cppdbg' | null {
   const pref = vscode.workspace.getConfiguration('kubuno').get<string>('dev.debugger', 'auto')
@@ -74,11 +129,15 @@ export class KubunoDynamicConfigurations implements vscode.DebugConfigurationPro
 
 export class KubunoDebugProvider implements vscode.DebugConfigurationProvider {
   provideDebugConfigurations(): vscode.DebugConfiguration[] {
-    const m = findCheckouts().find((c) => c.id !== 'core' && c.server)
+    const all = findCheckouts()
+    const m = all.find((c) => c.id !== 'core' && c.server)
     const id = m?.id ?? 'drive'
+    // The native desktop apps of the running OS (Kubuno Desktop, Kubuno Documents, …), after the dev core ones.
+    const desktop = all.flatMap((c) => desktopApps(c)).map((a) => ({ type: DEBUG_TYPE, request: 'launch', name: `Kubuno: ${a.bin} (desktop)`, target: 'desktop', module: a.id, app: a.bin }))
     return [
       { type: DEBUG_TYPE, request: 'launch', name: `Kubuno: dev core + ${id}`, target: 'core', module: id },
       { type: DEBUG_TYPE, request: 'launch', name: `Kubuno: ${id} web (browser)`, target: 'browser', module: id },
+      ...desktop,
     ]
   }
 
@@ -92,6 +151,7 @@ export class KubunoDebugProvider implements vscode.DebugConfigurationProvider {
       Object.assign(config, first)
     }
     const all = findCheckouts()
+    if (config.target === 'desktop') return resolveDesktop(config, all)
     const core = all.find((c) => c.id === 'core')
     const id = String(config.module ?? all.find((c) => c.id !== 'core' && c.server)?.id ?? 'drive')
     const m = all.find((c) => c.id === id)

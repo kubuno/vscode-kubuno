@@ -42,6 +42,8 @@
   "activationEvents": [
     "workspaceContains:**/kubuno.views.json",
     "workspaceContains:**/module.toml",
+    "workspaceContains:desktop/Cargo.toml",
+    "workspaceContains:*/desktop/Cargo.toml",
     "onDebugResolve:kubuno",
     "onDebugDynamicConfigurations:kubuno"
   ],
@@ -111,6 +113,18 @@
       ]
     },
     "commands": [
+      {
+        "command": "kubuno.desktop.debug",
+        "title": "Debug Desktop App…",
+        "category": "Kubuno",
+        "icon": "$(debug-alt)"
+      },
+      {
+        "command": "kubuno.desktop.run",
+        "title": "Run Desktop App (without debugging)…",
+        "category": "Kubuno",
+        "icon": "$(run)"
+      },
       {
         "command": "kubuno.openDesigner",
         "title": "Open in Kubuno View Designer",
@@ -320,9 +334,14 @@
               "npm-ci",
               "web-build",
               "web-typecheck",
-              "prepare-dev-core"
+              "prepare-dev-core",
+              "desktop-build"
             ],
             "description": "What the task does."
+          },
+          "app": {
+            "type": "string",
+            "description": "desktop-build: the app's binary (absent: every desktop app of the running OS)."
           },
           "target": {
             "type": "string",
@@ -393,14 +412,35 @@
                 "type": "string",
                 "enum": [
                   "core",
-                  "browser"
+                  "browser",
+                  "desktop"
                 ],
                 "default": "core",
-                "description": "`core`: the dev core with the module, under CodeLLDB / cppvsdbg / gdb. `browser`: the module's page in a debugged browser (TypeScript breakpoints)."
+                "description": "`core`: the dev core with the module, under CodeLLDB / cppvsdbg / gdb. `browser`: the module's page in a debugged browser (TypeScript breakpoints). `desktop`: a native desktop app of the running OS (`app`), its debug build under CodeLLDB / cppvsdbg / gdb."
               },
               "module": {
                 "type": "string",
-                "description": "The module run with the core (its id)."
+                "description": "The module run with the core (its id); `desktop`: the checkout of the app (`core`, `office`, `drive`, …)."
+              },
+              "app": {
+                "type": "string",
+                "description": "Desktop target: the app's binary (`kubuno-desktop`, `kubuno-documents`, `kubuno-spreadsheets`, `drive`, …)."
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Desktop target: the app's arguments (default: `--dev-instance vscode` for Kubuno Desktop, none otherwise)."
+              },
+              "sandbox": {
+                "type": "boolean",
+                "default": true,
+                "description": "Desktop target: run in a sandboxed profile (`KUBUNO_SANDBOX_DIR` in the extension's storage), never the user's accounts and settings."
+              },
+              "env": {
+                "type": "object",
+                "description": "Desktop target: extra environment variables."
               },
               "port": {
                 "type": "number",
@@ -447,6 +487,17 @@
               "name": "Kubuno: dev core + ${1:drive}",
               "target": "core",
               "module": "${1:drive}"
+            }
+          },
+          {
+            "label": "Kubuno: desktop app",
+            "body": {
+              "type": "kubuno",
+              "request": "launch",
+              "name": "Kubuno: ${1:kubuno-desktop} (desktop)",
+              "target": "desktop",
+              "module": "${2:core}",
+              "app": "${1:kubuno-desktop}"
             }
           },
           {

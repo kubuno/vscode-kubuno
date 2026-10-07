@@ -10,5 +10,5 @@
     "rootDir": "..",
     "types": ["node", "mocha", "vscode"]
   },
-  "include": [".", "../src/views/kbviewModel.ts", "../src/views/handlerFallback.ts"]
+  "include": [".", "../src/views/kbviewModel.ts", "../src/views/handlerFallback.ts", "../src/dev/desktop.ts"]
 }

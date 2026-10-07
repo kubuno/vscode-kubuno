@@ -14,16 +14,19 @@ import * as path from 'node:path'
 import * as vscode from 'vscode'
 import { type Checkout, findCheckouts } from './workspace'
 import { deployModule, devCoreDir } from './devCore'
+import { desktopApps, desktopOs, desktopTaskLabel } from './desktop'
 
 export const TASK_TYPE = 'kubuno'
 
 export interface KubunoTaskDefinition extends vscode.TaskDefinition {
   type: typeof TASK_TYPE
-  /** `cargo-build`, `npm-ci`, `web-build`, `web-typecheck`, `prepare-dev-core`. */
+  /** `cargo-build`, `npm-ci`, `web-build`, `web-typecheck`, `prepare-dev-core`, `desktop-build`. */
   action: string
   /** `core` or a module id. */
   target: string
   release?: boolean
+  /** `desktop-build`: the app's binary (`kubuno-desktop`, `kubuno-documents`, …); absent = every app of the OS. */
+  app?: string
 }
 
 /** The environment of every build: the configured Cargo target folder and SQLx's offline cache. */
@@ -164,8 +167,8 @@ export function webBuildSteps(c: Checkout): Step[] {
   return steps
 }
 
-function task(c: Checkout, action: string, name: string, steps: Step[], matchers: string[], group?: vscode.TaskGroup, release = false): vscode.Task {
-  const def: KubunoTaskDefinition = { type: TASK_TYPE, action, target: c.id, ...(release ? { release } : {}) }
+function task(c: Checkout, action: string, name: string, steps: Step[], matchers: string[], group?: vscode.TaskGroup, release = false, app?: string): vscode.Task {
+  const def: KubunoTaskDefinition = { type: TASK_TYPE, action, target: c.id, ...(release ? { release } : {}), ...(app ? { app } : {}) }
   const t = new vscode.Task(def, c.folder, name, TASK_TYPE, new vscode.CustomExecution(async () => new StepsTerminal(steps)), matchers)
   if (group) t.group = group
   t.presentationOptions = { reveal: vscode.TaskRevealKind.Always, clear: true }
@@ -189,6 +192,21 @@ export function tasksFor(c: Checkout, all: Checkout[]): vscode.Task[] {
   if (c.id !== 'core' && core && c.server) {
     out.push(prepareTask(core, c))
   }
+  out.push(...desktopTasks(c))
+  return out
+}
+
+/**
+ * The desktop apps of the running OS (`desktop.ts`): one `cargo build -p <package>` task per app in the checkout's
+ * desktop workspace, and one that builds them all.
+ */
+export function desktopTasks(c: Checkout): vscode.Task[] {
+  const apps = desktopApps(c)
+  if (apps.length === 0) return []
+  const ws = apps[0].workspace
+  const out = apps.map((a) => task(c, 'desktop-build', desktopTaskLabel(a), [cmd('cargo', ['build', '-p', a.pkg, '--bin', a.bin], ws)], ['$kubuno-rustc'], vscode.TaskGroup.Build, false, a.bin))
+  const pkgs = [...new Set(apps.map((a) => a.pkg))].flatMap((p) => ['-p', p])
+  out.push(task(c, 'desktop-build', `${c.id}: desktop build (all ${desktopOs()} apps)`, [cmd('cargo', ['build', ...pkgs], ws)], ['$kubuno-rustc'], vscode.TaskGroup.Build))
   return out
 }
 
@@ -212,6 +230,9 @@ export class KubunoTaskProvider implements vscode.TaskProvider {
     const all = findCheckouts()
     const c = all.find((x) => x.id === def.target)
     if (!c) return undefined
-    return tasksFor(c, all).find((x) => (x.definition as KubunoTaskDefinition).action === def.action && !!(x.definition as KubunoTaskDefinition).release === !!def.release)
+    return tasksFor(c, all).find((x) => {
+      const d = x.definition as KubunoTaskDefinition
+      return d.action === def.action && !!d.release === !!def.release && (d.app ?? '') === (def.app ?? '')
+    })
   }
 }
