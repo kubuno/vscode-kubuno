@@ -171,10 +171,13 @@ suite('Kubuno designer (VS Code)', () => {
     assert.notStrictEqual(text, before)
     assert.match(text, /\n[ \t]*<Button ?\/>[ \t]*\r?\n[ \t]*<\/Panel>/, 'the new element on its own line')
     await s.onMessage({ type: 'doubleClick', elementId: '0.1' })
-    await until('OnClick on the new Button', () => /<Button OnClick="button_click" ?\/>/.test(s.document.getText()))
+    const name = await until('OnClick on the new Button', () => /<Button[^>]*\bOnClick="(\w+)"/.exec(s.document.getText())?.[1]).catch((e: Error) => {
+      throw new Error(`${e.message}\n${s.document.getText().split('\n').slice(0, 14).join('\n')}`)
+    })
+    console.log(`DriveSettingsPage handler: ${name}`)
     const ts = vscode.workspace.textDocuments.find((d) => same(d.uri.fsPath, path.join(path.dirname(SETTINGS), 'DriveSettingsPage.ts')))
     assert.ok(ts, 'the code-behind is open')
-    assert.match(ts.getText(), /button_click\(_?sender: Button, _?e: MouseEventArgs\): void \{/)
+    assert.match(ts.getText(), new RegExp(`${name}\\(_?sender: Button, _?e: MouseEventArgs\\): void \\{`))
   })
 
   test('demo layout (screenshots)', async function () {

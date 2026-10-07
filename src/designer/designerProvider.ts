@@ -238,6 +238,8 @@ export class DesignerSession implements vscode.Disposable {
     if (this.selection === null || this.selection === '') return
     const k = this.selection.lastIndexOf('.')
     this.select(k < 0 ? '' : this.selection.slice(0, k))
+    // The XML caret follows, as for a click on the surface (not in `select`, which the caret itself drives).
+    this.revealInXml()
   }
 
   async command(name: string, id: string | null): Promise<void> {

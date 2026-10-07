@@ -16,17 +16,6 @@ const EXE = process.platform === 'win32' ? 'kubuno-views-ls.exe' : 'kubuno-views
 
 export type LsState = 'running' | 'missing' | 'failed' | 'starting'
 
-/**
- * A document URI as the server reads it. VS Code writes a Windows drive as `file:///c%3A/…`; the server turns URIs
- * into paths with `url::Url::to_file_path`, which accepts only a literal `c:` drive segment — with `%3A` the path
- * is lost, no project marker is found and every web view is served with the desktop profile (desktop completion,
- * "unknown attribute" diagnostics, `kubuno/createHandler` answering nothing). The colon is written as is, like
- * Visual Studio does; every other character keeps VS Code's encoding.
- */
-export function lsUri(uri: vscode.Uri): string {
-  return uri.toString().replace(/^file:\/\/\/([A-Za-z])%3A/, 'file:///$1:')
-}
-
 export class ViewsLanguageServer implements vscode.Disposable {
   private client: LanguageClient | null = null
   private status: vscode.StatusBarItem
@@ -74,7 +63,6 @@ export class ViewsLanguageServer implements vscode.Disposable {
       documentSelector: [{ language: 'kbview' }, { pattern: '**/*.{kbview,kbcontrol}' }],
       outputChannelName: 'Kubuno Views Language Server',
       synchronize: { fileEvents: vscode.workspace.createFileSystemWatcher('**/*.{ts,tsx,kbres,json}') },
-      uriConverters: { code2Protocol: lsUri, protocol2Code: (s) => vscode.Uri.parse(s) },
     }
     this.client = new LanguageClient('kubuno.views', 'Kubuno Views', serverOptions, clientOptions)
     try {

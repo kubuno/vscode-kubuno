@@ -31,5 +31,3 @@ All notable changes to this extension are documented here (format: Keep a Change
   now gets its own indented line.
 - With the language server, a double-click that the server could not resolve created no handler; the built-in
   writer now creates it.
-- On Windows the language server received `file:///c%3A/…` URIs it cannot turn into paths, so web views were
-  served with the desktop profile; the drive colon is now sent as is.

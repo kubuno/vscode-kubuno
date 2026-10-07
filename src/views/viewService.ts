@@ -6,7 +6,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as vscode from 'vscode'
-import { lsUri, type ViewsLanguageServer } from '../lsp/client'
+import type { ViewsLanguageServer } from '../lsp/client'
 import { log } from '../log'
 import { createHandlerFallback } from './handlerFallback'
 import { type EditOp, KbviewDocument } from './kbviewModel'
@@ -42,7 +42,7 @@ export class ViewService {
     if (cached && Date.now() - cached.stamp < 2000) return cached.registry
     const disk = loadRegistryFromDisk(p)
     let registry = disk
-    const fromLs = await this.ls.request<{ target?: string; components?: RegistryComponent[] }>('kubuno/registry', { uri: lsUri(doc.uri) })
+    const fromLs = await this.ls.request<{ target?: string; components?: RegistryComponent[] }>('kubuno/registry', { uri: doc.uri.toString() })
     if (fromLs?.target === 'web' && Array.isArray(fromLs.components) && fromLs.components.length) {
       // The server's registry is the truth for names and properties (it also scans the project's user controls).
       registry = { ...disk, components: fromLs.components, projectComponents: fromLs.components.filter((c) => c.origin === 'project') }
@@ -64,7 +64,7 @@ export class ViewService {
     if (this.ls.running) {
       for (const op of ops) {
         type Result = { edits: { range: LspRange; newText: string }[] }
-        const send = (wire: Record<string, unknown>): Promise<Result | undefined> => this.ls.request<Result>('kubuno/applyEdit', { uri: lsUri(doc.uri), op: wire })
+        const send = (wire: Record<string, unknown>): Promise<Result | undefined> => this.ls.request<Result>('kubuno/applyEdit', { uri: doc.uri.toString(), op: wire })
         // The server's `insertChild` is a verbatim splice (`<Label />` glued before `</Panel>`); its
         // `insertFragment` lays the element out on its own indented line, as the built-in model does. Older
         // servers without it answer no edit, and the verbatim splice is used.
@@ -95,7 +95,7 @@ export class ViewService {
 
   async elementAt(doc: vscode.TextDocument, pos: vscode.Position): Promise<string | null> {
     if (this.ls.running) {
-      const r = await this.ls.request<{ elementId: string } | null>('kubuno/elementAtOffset', { uri: lsUri(doc.uri), position: { line: pos.line, character: pos.character } })
+      const r = await this.ls.request<{ elementId: string } | null>('kubuno/elementAtOffset', { uri: doc.uri.toString(), position: { line: pos.line, character: pos.character } })
       if (r !== undefined) return r?.elementId ?? null
     }
     return this.model(doc).elementAt(doc.offsetAt(pos))?.id ?? null
@@ -113,9 +113,9 @@ export class ViewService {
   async createHandler(doc: vscode.TextDocument, elementId: string, event: string): Promise<void> {
     if (this.ls.running) {
       const openFiles: Record<string, string> = {}
-      for (const d of vscode.workspace.textDocuments) if (/\.(ts|tsx)$/.test(d.uri.fsPath)) openFiles[lsUri(d.uri)] = d.getText()
+      for (const d of vscode.workspace.textDocuments) if (/\.(ts|tsx)$/.test(d.uri.fsPath)) openFiles[d.uri.toString()] = d.getText()
       const r = await this.ls.request<{ handlerName: string; location?: { uri: string; range: LspRange }; edit?: unknown }>('kubuno/createHandler', {
-        uri: lsUri(doc.uri),
+        uri: doc.uri.toString(),
         elementId,
         event,
         openFiles,

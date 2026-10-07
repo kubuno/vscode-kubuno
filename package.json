@@ -30,12 +30,19 @@
     "untrustedWorkspaces": {
       "supported": "limited",
       "description": "In Restricted Mode the designer, Toolbox and Properties work; the views language server (an executable) is not started.",
-      "restrictedConfigurations": ["kubuno.languageServer.path", "kubuno.designer.hostRuntimePath"]
+      "restrictedConfigurations": [
+        "kubuno.languageServer.path",
+        "kubuno.designer.hostRuntimePath",
+        "kubuno.dev.cargoTargetDir",
+        "kubuno.dev.folder"
+      ]
     }
   },
   "activationEvents": [
     "workspaceContains:**/kubuno.views.json",
-    "workspaceContains:**/module.toml"
+    "workspaceContains:**/module.toml",
+    "onDebugResolve:kubuno",
+    "onDebugDynamicConfigurations:kubuno"
   ],
   "contributes": {
     "languages": [
@@ -231,9 +238,213 @@
           "type": "string",
           "default": "",
           "markdownDescription": "Folder of a `@kubuno/host-runtime` build (`dist/`) to use instead of the one shipped with the extension."
+        },
+        "kubuno.dev.port": {
+          "type": "number",
+          "default": 18680,
+          "description": "HTTP port of the dev core (kept away from an installed core on 8080)."
+        },
+        "kubuno.dev.databaseUrl": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Database of the dev core: a **throw-away** `postgres://`, `mysql://` or `sqlite://` URL. Empty: SQLite in the dev core folder."
+        },
+        "kubuno.dev.folder": {
+          "type": "string",
+          "default": "",
+          "description": "Data folder of the dev core. Empty: the extension's storage (dev-core-<port>)."
+        },
+        "kubuno.dev.cargoTargetDir": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "`CARGO_TARGET_DIR` of the build tasks (e.g. a local disk when the sources are on a network share). Empty: Cargo's default."
+        },
+        "kubuno.dev.debugger": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "lldb",
+            "cppvsdbg",
+            "cppdbg"
+          ],
+          "default": "auto",
+          "description": "Native debugger of the dev core. auto: CodeLLDB, else cppvsdbg (Windows) / cppdbg (gdb)."
+        },
+        "kubuno.dev.browser": {
+          "type": "string",
+          "enum": [
+            "chrome",
+            "edge"
+          ],
+          "default": "chrome",
+          "description": "Browser of the « web (browser) » launch configuration."
+        },
+        "kubuno.dev.openBrowser": {
+          "type": "boolean",
+          "default": true,
+          "description": "Open the module's page once the dev core answers."
+        },
+        "kubuno.dev.adminPassword": {
+          "type": "string",
+          "default": "",
+          "description": "Password of the dev core's first admin (admin@kubuno.local). Empty: generated, written to initial-admin-password in the dev core folder."
+        },
+        "kubuno.dev.rustLog": {
+          "type": "string",
+          "default": "info",
+          "description": "RUST_LOG of the dev core."
         }
       }
-    }
+    },
+    "taskDefinitions": [
+      {
+        "type": "kubuno",
+        "required": [
+          "action",
+          "target"
+        ],
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "cargo-build",
+              "npm-ci",
+              "web-build",
+              "web-typecheck",
+              "prepare-dev-core"
+            ],
+            "description": "What the task does."
+          },
+          "target": {
+            "type": "string",
+            "description": "`core` or a module id (the `[module].id` of its module.toml)."
+          },
+          "release": {
+            "type": "boolean",
+            "description": "cargo build --release."
+          }
+        }
+      }
+    ],
+    "problemMatchers": [
+      {
+        "name": "kubuno-rustc",
+        "owner": "rust",
+        "source": "cargo",
+        "fileLocation": [
+          "autoDetect",
+          "${workspaceFolder}"
+        ],
+        "pattern": [
+          {
+            "regexp": "^(warning|warn|error)(?:\\[(\\S+)\\])?: (.*)$",
+            "severity": 1,
+            "code": 2,
+            "message": 3
+          },
+          {
+            "regexp": "^\\s*-->\\s+(.+?):(\\d+):(\\d+)\\s*$",
+            "file": 1,
+            "line": 2,
+            "column": 3
+          }
+        ]
+      },
+      {
+        "name": "kubuno-tsc",
+        "owner": "typescript",
+        "source": "ts",
+        "fileLocation": [
+          "autoDetect",
+          "${workspaceFolder}"
+        ],
+        "pattern": {
+          "regexp": "^([^\\s].*?)\\((\\d+),(\\d+)\\): (error|warning|info) (TS\\d+)\\s*:\\s*(.*)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "code": 5,
+          "message": 6
+        }
+      }
+    ],
+    "debuggers": [
+      {
+        "type": "kubuno",
+        "label": "Kubuno",
+        "languages": [
+          "rust",
+          "typescript"
+        ],
+        "configurationAttributes": {
+          "launch": {
+            "properties": {
+              "target": {
+                "type": "string",
+                "enum": [
+                  "core",
+                  "browser"
+                ],
+                "default": "core",
+                "description": "`core`: the dev core with the module, under CodeLLDB / cppvsdbg / gdb. `browser`: the module's page in a debugged browser (TypeScript breakpoints)."
+              },
+              "module": {
+                "type": "string",
+                "description": "The module run with the core (its id)."
+              },
+              "port": {
+                "type": "number",
+                "description": "Port of the dev core (default: kubuno.dev.port)."
+              },
+              "openBrowser": {
+                "type": "boolean",
+                "default": true,
+                "description": "Open the module's page once the core answers."
+              }
+            }
+          }
+        },
+        "initialConfigurations": [
+          {
+            "type": "kubuno",
+            "request": "launch",
+            "name": "Kubuno: dev core + drive",
+            "target": "core",
+            "module": "drive"
+          },
+          {
+            "type": "kubuno",
+            "request": "launch",
+            "name": "Kubuno: drive web (browser)",
+            "target": "browser",
+            "module": "drive"
+          }
+        ],
+        "configurationSnippets": [
+          {
+            "label": "Kubuno: dev core with a module",
+            "body": {
+              "type": "kubuno",
+              "request": "launch",
+              "name": "Kubuno: dev core + ${1:drive}",
+              "target": "core",
+              "module": "${1:drive}"
+            }
+          },
+          {
+            "label": "Kubuno: module web in the browser",
+            "body": {
+              "type": "kubuno",
+              "request": "launch",
+              "name": "Kubuno: ${1:drive} web (browser)",
+              "target": "browser",
+              "module": "${1:drive}"
+            }
+          }
+        ]
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run build",

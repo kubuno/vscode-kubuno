@@ -62,11 +62,14 @@ suite('kbview model (fallback without the language server)', () => {
   })
 })
 
-suite('language server URIs', () => {
-  test('a Windows drive keeps its colon (the server reads file:///c:/…, not c%3A)', async () => {
-    const vscode = await import('vscode')
-    const { lsUri } = await import('../../src/lsp/client')
-    assert.strictEqual(lsUri(vscode.Uri.parse('file:///c%3A/My%20Views/A.kbview')), 'file:///c:/My%20Views/A.kbview')
-    assert.strictEqual(lsUri(vscode.Uri.parse('file:///home/me/a%3Ab.kbview')), 'file:///home/me/a%3Ab.kbview')
+suite('build tasks', () => {
+  test('cargo and tsc file names become absolute (the problem matchers then find them from any folder)', async () => {
+    const path = await import('node:path')
+    const { absolutize } = await import('../../src/dev/tasks')
+    const cwd = path.resolve('/w/drive/server')
+    assert.strictEqual(absolutize('  --> src/main.rs:4:5', cwd), `  --> ${path.join(cwd, 'src/main.rs')}:4:5`)
+    assert.strictEqual(absolutize('\x1b[1m\x1b[38;5;12m  --> \x1b[0msrc/a.rs:1:2', cwd), `  --> ${path.join(cwd, 'src/a.rs')}:1:2`)
+    assert.strictEqual(absolutize('src/a.ts(3,7): error TS2322: Type x', cwd), `${path.join(cwd, 'src/a.ts')}(3,7): error TS2322: Type x`)
+    assert.strictEqual(absolutize('warning: unused variable', cwd), 'warning: unused variable')
   })
 })
