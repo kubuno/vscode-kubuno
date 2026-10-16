@@ -1,7 +1,7 @@
-# Kubuno in Visual Studio Code — study and prototype (2026-10-07)
+# Kubuno in Visual Studio Code - study and prototype (2026-10-07)
 
-> Question: can Kubuno be developed from **any OS** by moving (part of) vskubuno — the Visual Studio 2026
-> extension — to Visual Studio Code, with a visual designer, a Toolbox and a Properties window like other VS Code
+> Question: can Kubuno be developed from **any OS** by moving (part of) vskubuno - the Visual Studio 2026
+> extension - to Visual Studio Code, with a visual designer, a Toolbox and a Properties window like other VS Code
 > designer extensions? This note answers with evidence from a working prototype (this repository) built and
 > tested on Windows 11 and on Ubuntu 24.04 (Xvfb), and recommends a plan.
 
@@ -31,15 +31,15 @@
 | **Figma for VS Code** | webview panels | webview side views | none (read-only design data) | webview views in the side bar for panels |
 | **Flutter / Dart** | DevTools (Widget Inspector) in a webview, served by the DevTools server; *Flutter Property Editor* as a side bar webview view (2025) | property editor = `WebviewView` | edits go through the Dart analysis server (LSP-style requests) → `WorkspaceEdit` | the Properties pane as a `WebviewView` fed by language-server requests |
 | **Avalonia for VS Code** | XAML previewer: frames rendered by the Avalonia designer host process and shown in a webview (HTML transport) | none (text editing + preview) | text is the truth | precedent for **remote/out-of-process rendering streamed into a webview** (§5 b) |
-| **.NET MAUI / C# Dev Kit**, **Uno Platform** | no in-editor designer: XAML Hot Reload, Uno's *Hot Design* runs inside the running app | — | — | confirms there is no XAML-designer-in-VS-Code precedent to reuse |
-| **Qt for VS Code** (Qt Group) | none in the editor: `.ui` files open in the external Qt Widgets Designer | — | file on disk | the external-tool fallback, not what we want |
-| **Android layout preview** | Android Studio only; VS Code extensions only offer XML language support | — | — | — |
+| **.NET MAUI / C# Dev Kit**, **Uno Platform** | no in-editor designer: XAML Hot Reload, Uno's *Hot Design* runs inside the running app | - | - | confirms there is no XAML-designer-in-VS-Code precedent to reuse |
+| **Qt for VS Code** (Qt Group) | none in the editor: `.ui` files open in the external Qt Widgets Designer | - | file on disk | the external-tool fallback, not what we want |
+| **Android layout preview** | Android Studio only; VS Code extensions only offer XML language support | - | - | - |
 
 Platform facts the design relies on (all exercised by the prototype):
 
 - `CustomTextEditorProvider` (not `CustomEditorProvider`): VS Code owns undo/redo, dirty state, save, hot exit
   and backups; the designer only applies `WorkspaceEdit`s. The XML is an ordinary text editor opened beside the
-  designer — that *is* the Design | XML split, and the language server serves it like any `.kbview` editor.
+  designer - that *is* the Design | XML split, and the language server serves it like any `.kbview` editor.
 - Panels are `WebviewView`s in an activity bar container (Toolbox, Properties) and a `TreeView` (Projects).
   The Document Outline comes for free from the server's `textDocument/documentSymbol` (visible as breadcrumbs in
   `captures/windows-waffle.png`).
@@ -48,13 +48,13 @@ Platform facts the design relies on (all exercised by the prototype):
   - The webview host page forwards a drag to the workbench only when every item is a *file*; any other HTML5 drag
     stays inside the webviews. So a private MIME type (`application/vnd.kubuno.toolbox-item`, the same technique
     as the *WinForms Designer for VS Code* extension's `application/vnd.winforms-toolbox-item`) is the right
-    payload — `text/plain` is not needed, and during the drag only the types are readable, so the item's name is
+    payload - `text/plain` is not needed, and during the drag only the types are readable, so the item's name is
     sent ahead through the extension.
   - **But the workbench blocks the editor's webview** as soon as a drag passes over workbench DOM: every visible
     webview editor registers a listener on the main window that sets `pointer-events: none` on its iframe on
     `dragover` (and lifts it only for `dragover` with Shift, `dragend`, or a mouse move without buttons). A drag
     from the side bar Toolbox (a `WebviewView`) to the designer always crosses the sash, so the design page never
-    sees `dragenter` (logged: the Toolbox's `dragstart`/`dragend` arrive, the page gets nothing — with or without
+    sees `dragenter` (logged: the Toolbox's `dragstart`/`dragend` arrive, the page gets nothing - with or without
     Shift, measured on the live session). A `TreeDragAndDropController` Toolbox starts its drag in the workbench
     and is blocked the same way. Whatever the WinForms extension does, a cross-webview drop into an editor
     webview is not reliable in this VS Code version.
@@ -62,7 +62,7 @@ Platform facts the design relies on (all exercised by the prototype):
     filter, same groups as the side bar view, setting `kubuno.designer.palette`). The drag never leaves the page:
     native HTML5 drag and drop with the private type, translated in the shim (`media/designer-shim.js`) into the
     page's host-drag protocol (`dragEnter` / `dragOver` / `drop` / `dragLeave`, the messages Visual Studio's OLE
-    drop target sends), so the page draws its own insertion markers while hovering and inserts at the pointer —
+    drop target sends), so the page draws its own insertion markers while hovering and inserts at the pointer -
     the WinForms behaviour. Verified with real input on the live Xorg session of 192.168.1.100 and under Xvfb
     (`captures/linux-drag-hover.png`, `linux-drag-after.png`: a `Label` dropped between the header's label and
     its pencil, at the marker).
@@ -75,10 +75,10 @@ Platform facts the design relies on (all exercised by the prototype):
 
 | Piece | Status in the prototype |
 |---|---|
-| `kubuno-views-ls` (completion, hover, diagnostics, outline, F12, `kubuno/applyEdit`, `elementAtOffset`, `rangeOfElement`, `registry`, `createHandler`) | used through `vscode-languageclient` 9, stdio, no options — the exact binary vskubuno ships (Windows). Completion, diagnostics, outline and `createHandler` verified in the Windows test run. |
+| `kubuno-views-ls` (completion, hover, diagnostics, outline, F12, `kubuno/applyEdit`, `elementAtOffset`, `rangeOfElement`, `registry`, `createHandler`) | used through `vscode-languageclient` 9, stdio, no options - the exact binary vskubuno ships (Windows). Completion, diagnostics, outline and `createHandler` verified in the Windows test run. |
 | The web design page (`@kubuno/host-runtime` 0.1.2 from npm, bundled mode) | loaded as the webview document (`<base>` = the package's `dist/`, CSP with `'wasm-unsafe-eval'` for the compiler's WebAssembly); protocol unchanged, transport = shim. The compiler, themes, fonts, `setHostRegistry`, `projectComponents`, `setDocumentInfo`, design data, `renderStatus` all work. |
 | `@kubuno/views-compiler` / `@kubuno/views` | inside the page (WASM); the page's `renderStatus` diagnostics become VS Code diagnostics when no language server runs. |
-| rust-analyzer | the official `rust-lang.rust-analyzer` extension (all OSes) — nothing to write. |
+| rust-analyzer | the official `rust-lang.rust-analyzer` extension (all OSes) - nothing to write. |
 | F5 | CodeLLDB (Linux/macOS/Windows) or `cppvsdbg` (Windows/MSVC) launch configurations for `cargo build` outputs; the dev core of vskubuno's `WEB.md` (SSH build on the Linux host, tunnel to the dev database) becomes a `tasks.json` + `launch.json` pair. Not in the prototype. |
 | Tasks: `cargo`, `npm run build`, `build_kbpkg.sh`, `deploy_local.sh` | `TaskProvider` or plain `tasks.json` with problem matchers (`$rustc`, `$tsc`). Not in the prototype. |
 
@@ -96,12 +96,12 @@ kubuno-desktop-views-ls → kubuno-desktop-views (windows/, Win32 framework)
   → kubuno-desktop-ui / -controls / -resources → windows 0.62, accesskit_windows
 ```
 
-The server uses `kubuno_desktop_views` in 25 files for portable things — `syntax`, `ast`, `edit` (already
+The server uses `kubuno_desktop_views` in 25 files for portable things - `syntax`, `ast`, `edit` (already
 re-exported from the portable `kubuno-desktop-views-syntax`, WV-1), plus the **desktop registry**
 (`registry::*`, `controls::ALL`, built by the `component!` macros of the Win32 controls), `validate`,
 `binding::{parse_binding, Value, ViewModel}`, `event_handlers`, `messages`, `icon::catalog_json`.
 
-**Proposed fix (core, not done here — other agents work there), 3–5 days:**
+**Proposed fix (core, not done here - other agents work there), 3–5 days:**
 
 1. Move the registry *model* and the validator's registry-dependent half to a common crate, and have the
    desktop registry exported as JSON (`registry::export::export()`, already the `kubuno/registry` payload)
@@ -150,12 +150,12 @@ Effort: S ≤ 2 days, M ≤ 1 week, L ≤ 3 weeks, XL more.
 | Feature | Prototype | Effort to parity | Notes |
 |---|---|---|---|
 | Web designer surface (render, selection, move/resize, reorder, keyboard, context menu) | ✅ | S | all from the page; context menu = QuickPick (no native menu at a point in webviews) |
-| Design \| XML split, selection sync both ways | ✅ | — | |
+| Design \| XML split, selection sync both ways | ✅ | - | |
 | Toolbox (registry tabs, filter, project controls, user controls) | ✅ drag and drop from the palette docked in the designer, click-to-place, double-click insert | S | icons (Lucide set as in VS) |
 | Properties (categories, enums, booleans, text, unknown attributes) | ✅ | M | binding picker (`kubuno/bindingPaths`), icon picker, resource picker, collection editors |
 | Events tab, ⚡ new handler, double-click handler | ✅ (LS on Windows, fallback elsewhere) | S | compatible-handlers dropdown (`kubuno/compatibleHandlers`) |
-| F7 / Shift+F7 | ✅ | — | |
-| Undo/redo, save, dirty | ✅ (VS Code's) | — | |
+| F7 / Shift+F7 | ✅ | - | |
+| Undo/redo, save, dirty | ✅ (VS Code's) | - | |
 | Completion, diagnostics, hover, outline, F12, rename | ✅ via the LS (Windows) | M (LS portability, §4) | |
 | Project-mode page (dev server, code-behind, HMR) | ❌ | S + core ½ day | iframe transport in `protocol.ts` |
 | Live data mode | ❌ (not in VS either) | M | |
@@ -166,7 +166,7 @@ Effort: S ≤ 2 days, M ≤ 1 week, L ≤ 3 weeks, XL more.
 | Dev assistant (AI in the IDE) | ❌ | M | VS Code's chat / language model API, or the MCP server already designed for VS |
 | Dev core F5, build tasks, debug | ✅ local (task and debug providers, `src/dev/`); TS breakpoints in modules open | S | remote Linux build: Remote-SSH can run the whole IDE on the Linux host |
 | Publish (.kbpkg, release, Docker) | ❌ | S–M | commands wrapping `_tools/` scripts |
-| Rust (rust-analyzer, cargo) | free | — | official extensions |
+| Rust (rust-analyzer, cargo) | free | - | official extensions |
 
 ## 8. Lots and recommendation
 
@@ -189,9 +189,9 @@ desktop designer and the WinForms-grade Properties window for nothing in return 
 
 ## 9. The prototype (this repository)
 
-- `src/designer/` — the custom editor and the webview shim; `src/views/` — Toolbox / Properties views, the
-  `ViewService` (language server first, `kbviewModel` fallback), handler fallback; `src/lsp/` — the client;
-  `src/project/` — web project detection (the server's rule), registries, the Projects view.
+- `src/designer/` - the custom editor and the webview shim; `src/views/` - Toolbox / Properties views, the
+  `ViewService` (language server first, `kbviewModel` fallback), handler fallback; `src/lsp/` - the client;
+  `src/project/` - web project detection (the server's rule), registries, the Projects view.
 - Tests: `npm test` (`@vscode/test-electron`, a throw-away workspace copied from `core/` and `drive/`;
   `KUBUNO_VIEWS_LS` to use a server, `KUBUNO_SRC` for the checkout). Linux: `xvfb-run -a npm test`.
 - Linux / Windows matrix (designer, language, build / run / debug): `docs/VSCODE-TEST-MATRIX.md`.
@@ -208,7 +208,7 @@ WaffleMenu and drive's DriveSettingsPage; the palette's drag and drop inserts at
 selects the element, moves the XML caret and fills Properties; `Text` edited in Properties is written to the XML
 and rendered; a double-click creates `label_click` in `WaffleMenu.ts` (built-in fallback, no language server on
 Linux); F7 opens the code-behind. Differences from Xvfb: none in behaviour; the window manager and DPI are real,
-and a first opening of a folder is in **Restricted Mode** — the extension now declares limited support (designer
+and a first opening of a folder is in **Restricted Mode** - the extension now declares limited support (designer
 on, language server off until the workspace is trusted). In bundled mode drive's own translations are not loaded
-(keys such as `drive_settings_title` show), as in Visual Studio's bundled mode — the project-mode page (VSC-2)
+(keys such as `drive_settings_title` show), as in Visual Studio's bundled mode - the project-mode page (VSC-2)
 loads them.

@@ -275,7 +275,7 @@ export class DesignerSession implements vscode.Disposable {
 
   /**
    * A key the page does not use. VS Code's webview host already forwards every keydown of the page to the
-   * workbench, which runs its keybindings (undo, redo, save, F7 of this extension…) — running them here as well
+   * workbench, which runs its keybindings (undo, redo, save, F7 of this extension…) - running them here as well
    * ran them twice (one Ctrl+Z undid two edits, F7 opened the code-behind then a second designer). Only keys
    * no keybinding covers are handled here.
    */

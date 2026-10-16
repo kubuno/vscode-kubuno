@@ -2,11 +2,11 @@
  * Launch configurations of type `kubuno`, resolved into a real debugger's configuration (no `launch.json` to
  * write per repository):
  *
- * - `"target": "core"` — the dev core (`kubuno-core` of the workspace with one module, `devCore.ts`) under
+ * - `"target": "core"` - the dev core (`kubuno-core` of the workspace with one module, `devCore.ts`) under
  *   CodeLLDB (`lldb`, every OS), else `cppvsdbg` (Windows) or `cppdbg` (gdb, Linux / macOS) from the C/C++
  *   extension; its pre-launch task is « prepare dev core (<module>) ». Once the core answers, the module's page
  *   opens in the browser (`kubuno.dev.openBrowser`).
- * - `"target": "browser"` — the module's page in a browser debugged by VS Code's JavaScript debugger, with the
+ * - `"target": "browser"` - the module's page in a browser debugged by VS Code's JavaScript debugger, with the
  *   source maps of the module's `web/dist` (breakpoints in the TypeScript of `web/src`).
  */
 import * as fs from 'node:fs'

@@ -1,6 +1,6 @@
 /**
  * Event handler creation when `kubuno-views-ls` is not available on this OS: the same result as its
- * `kubuno/createHandler` for a web view (vskubuno docs/WEB-VIEWS.md §16), written by the extension —
+ * `kubuno/createHandler` for a web view (vskubuno docs/WEB-VIEWS.md §16), written by the extension -
  *
  * - the default name is `<x:Name>_<event>` in snake_case (the element's name without `x:Name`, the file stem for
  *   the root's own events: `account_menu_load`), made unique among the class's members;

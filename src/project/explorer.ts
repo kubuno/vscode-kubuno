@@ -1,6 +1,6 @@
 /**
  * The Kubuno « Projects » view: what Visual Studio shows through the solution (`Kubuno.slnx`, `.rsproj`, `.esproj`)
- * built from the workspace instead — VS Code has no project system. Modules (a folder with a `module.toml`, and
+ * built from the workspace instead - VS Code has no project system. Modules (a folder with a `module.toml`, and
  * the core) → platforms (`web`, `server`, `desktop`, `mobile`, `common`) → for a web platform with a
  * `kubuno.views.json`, its views and user controls by folder, opened in the designer.
  */

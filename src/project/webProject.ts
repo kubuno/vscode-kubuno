@@ -2,7 +2,7 @@
  * Web view projects: which project a `.kbview` / `.kbcontrol` belongs to, its registries and its user controls.
  *
  * The rule is the language server's (`kubuno-views-ls` `web/mod.rs`, vskubuno docs/WEB-VIEWS.md §16): walking up
- * from the view's folder, the first marker decides — `kubuno.views.json` (its `target`, web when absent), a
+ * from the view's folder, the first marker decides - `kubuno.views.json` (its `target`, web when absent), a
  * `package.json` depending on `@kubuno/views-compiler` or a `*.esproj` → web, a `Cargo.toml` naming
  * `kubuno-desktop` → desktop; nothing → desktop.
  */

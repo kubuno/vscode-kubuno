@@ -1,7 +1,7 @@
 # Kubuno for Visual Studio Code
 
-Design and edit [Kubuno](https://github.com/kubuno) views — `.kbview` pages and `.kbcontrol` user controls of the
-web UI — in Visual Studio Code, on Windows, Linux and macOS.
+Design and edit [Kubuno](https://github.com/kubuno) views - `.kbview` pages and `.kbcontrol` user controls of the
+web UI - in Visual Studio Code, on Windows, Linux and macOS.
 
 It is the cross-platform counterpart of **vskubuno**, the Visual Studio 2026 extension, and reuses its parts:
 the same design page (`@kubuno/host-runtime`), the same language server (`kubuno-views-ls`) and the same
@@ -10,22 +10,22 @@ editing protocol. The study behind it, with the feature parity matrix and the pl
 
 ## Features
 
-- **Kubuno View Designer** — opening a `.kbview` / `.kbcontrol` of a web project shows the view rendered by the
+- **Kubuno View Designer** - opening a `.kbview` / `.kbcontrol` of a web project shows the view rendered by the
   real Kubuno runtime (React, `@ui`, themes, fonts, translations), with the XML in a text editor beside it.
   Selecting on the surface moves the XML caret, moving the XML caret selects on the surface. Move, resize,
   reorder, delete, copy/paste and duplicate are written to the XML as ordinary, undoable edits.
-- **Toolbox** — every element of the project's registry, grouped, filterable, with the project's own controls
+- **Toolbox** - every element of the project's registry, grouped, filterable, with the project's own controls
   and user controls, docked beside the design surface and in the side bar. Drag an item onto the surface (the
   insertion marker shows where it goes), or click it then click the surface, or double-click it to insert it into
   the selection.
-- **Properties** — the selection's properties by category with enum and boolean pickers, and its events: ⚡
+- **Properties** - the selection's properties by category with enum and boolean pickers, and its events: ⚡
   creates the handler in the TypeScript code-behind (or opens it). Double-clicking an element creates its
   default event handler.
-- **Language server** — completion, hover, diagnostics, outline and go-to-definition from `kubuno-views-ls`
+- **Language server** - completion, hover, diagnostics, outline and go-to-definition from `kubuno-views-ls`
   when it is available for the OS (setting `kubuno.languageServer.path`, `bin/<platform>-<arch>/` of the
   extension, or the `PATH`). Without it the designer still works: it edits the XML itself and shows the
   compiler's diagnostics.
-- **Projects** — the Kubuno modules of the workspace, their platforms and their views by folder.
+- **Projects** - the Kubuno modules of the workspace, their platforms and their views by folder.
 - **F7** toggles view and code-behind; **Shift+F7** opens the designer from the code-behind.
 
 ## Build

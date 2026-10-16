@@ -168,8 +168,8 @@ async function newView(folder?: vscode.Uri): Promise<void> {
   }
   const kind = await vscode.window.showQuickPick(
     [
-      { label: 'View', description: '.kbview — a page, window or dialog', ext: '.kbview' },
-      { label: 'User Control', description: '.kbcontrol — placed inside other views', ext: '.kbcontrol' },
+      { label: 'View', description: '.kbview - a page, window or dialog', ext: '.kbview' },
+      { label: 'User Control', description: '.kbcontrol - placed inside other views', ext: '.kbcontrol' },
     ],
     { placeHolder: 'Kind' },
   )

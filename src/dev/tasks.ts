@@ -5,7 +5,7 @@
  *
  * Every task runs in a pseudoterminal driven by the extension (`CustomExecution`), not in a shell: the same code
  * on Linux, Windows and macOS (no `&&`, quoting or `.cmd` differences), and the output is rewritten so that every
- * file `cargo` and `tsc` print is absolute — the `kubuno-rustc` / `kubuno-tsc` problem matchers then put errors
+ * file `cargo` and `tsc` print is absolute - the `kubuno-rustc` / `kubuno-tsc` problem matchers then put errors
  * in the Problems panel whatever folder the tool ran in.
  */
 import { spawn } from 'node:child_process'

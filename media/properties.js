@@ -104,7 +104,7 @@
     i.placeholder = p.defaultValue
     i.spellcheck = false
     // Enter commits, and so does the blur that follows (focus moving to the surface): commit a value once, not
-    // twice — the second identical edit was an extra undo step.
+    // twice - the second identical edit was an extra undo step.
     let committed = p.value === null ? '' : p.value
     const done = () => {
       const v = i.value

@@ -7,7 +7,7 @@
 //    and drops at the pointer exactly as in Visual Studio:
 //    - drag and drop from the **palette docked in this page** (the Toolbox beside the surface);
 //    - drag and drop from the side bar Toolbox view (private MIME type), when VS Code lets the drag reach this
-//      page — it blocks every editor webview while a drag crosses the workbench (docs/VSCODE.md §2);
+//      page - it blocks every editor webview while a drag crosses the workbench (docs/VSCODE.md §2);
 //    - an armed tool (click a Toolbox item, then click the surface), Windows Forms' other gesture.
 ;(function () {
   'use strict'

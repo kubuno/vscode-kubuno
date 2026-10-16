@@ -1,6 +1,6 @@
 /**
  * The dev core: the workspace's own `kubuno-core` build, run (or debugged) with one module, on its own port and
- * data folder — never the installed service, its database or its folders.
+ * data folder - never the installed service, its database or its folders.
  *
  * Layout (`kubuno.dev.folder`, default `<extension global storage>/dev-core-<port>`):
  *
